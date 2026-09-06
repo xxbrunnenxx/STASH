@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STASH · Showcase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   STASH · Showcase
+   Simulation des Geräts (Waveshare ESP32-S3-ePaper-3.97, 480 × 800 hochkant)
+   in einer Werkbank. Ein File, kein Build, keine Abhängigkeit außer den
+   Schriften — die haben Fallbacks, offline sieht es nur anders aus.
+
+   Regeln, die hier durchgehalten werden:
+   · Innerhalb von #screen gibt es kein border-radius, kein box-shadow,
+     keinen Verlauf und kein flaches Grau. Nur --paper und --ink.
+   · Grauwirkung auf dem Panel entsteht ausschließlich über Punktraster
+     (--raster-*, --maske-*), also über echte 1-Bit-Muster.
+   · Außerhalb des Panels ist Rundung und Schatten erlaubt, das ist Physik.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* Palette laut Spezifikation. Alle Werte praktisch unbunt (Sättigung < 6 %),
+     das Panel selbst benutzt davon nur --paper und --ink. */
+  --void:  #0A0A0B;   /* Werkfläche            */
+  --shell: #17181A;   /* Panels links/rechts   */
+  --edge:  #2A2C30;   /* Trennlinien           */
+  --mute:  #6E7278;   /* Sekundärtext          */
+  --chalk: #D9DBDD;   /* Primärtext auf dunkel */
+  --paper: #F4F4F2;   /* E-Ink-Papier          */
+  --ink:   #14161A;   /* E-Ink-Schwarz         */
+
+  --serif: 'Literata', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans:  'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+
+  /* Dither-Muster. Sichtbare Flächen: Tinte auf transparent.
+     4er-Raster = jeder 4. Pixel, 2er-Schachbrett = die Hälfte. */
+  --raster-4:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%2314161A'/%3E%3C/svg%3E");
+  --raster-2:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='2' height='2' fill='%2314161A'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%2314161A'/%3E%3C/svg%3E");
+  /* Masken fürs Geisterbild: nur die Punkte bleiben stehen, der Rest wird
+     weggeschnitten. Drei Stufen, je nach Zahl der Partial-Refreshes. */
+  --maske-1: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+  --maske-2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+  --maske-3: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; }
+body{
+  background:var(--void); color:var(--chalk);
+  font-family:var(--sans); font-size:13px; line-height:1.45;
+  overflow:hidden;
+}
+button{ font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+
+/* ─── Werkbank-Raster ────────────────────────────────────────────────────── */
+
+#app{
+  height:100%;
+  display:grid;
+  grid-template-columns:210px 1fr 344px;
+  grid-template-rows:38px 1fr;
+  grid-template-areas:"kopf kopf kopf" "links mitte rechts";
+}
+
+#kopf{
+  grid-area:kopf; display:flex; align-items:center; justify-content:space-between;
+  padding:0 14px; border-bottom:1px solid var(--edge); background:var(--shell);
+}
+#kopf .marke{ font-weight:600; letter-spacing:.02em; }
+#kopf .marke span{ color:var(--mute); font-weight:400; }
+#kopf .brain{ font-family:var(--mono); font-size:11px; color:var(--mute); display:flex; align-items:center; gap:7px; }
+#kopf .led{ width:6px; height:6px; border-radius:50%; background:var(--chalk); }
+#kopf .brain.weg .led{ background:var(--mute); }
+
+#links{ grid-area:links; background:var(--shell); border-right:1px solid var(--edge); display:flex; flex-direction:column; overflow-y:auto; }
+#rechts{ grid-area:rechts; background:var(--shell); border-left:1px solid var(--edge); display:flex; flex-direction:column; overflow:hidden; }
+#mitte{ grid-area:mitte; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:14px 0; overflow:hidden; }
+
+.rubrik{
+  font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--mute);
+  padding:13px 14px 6px;
+}
+
+/* Ansichtenliste */
+.navi{ display:flex; flex-direction:column; }
+.navi button{
+  text-align:left; padding:6px 14px; color:var(--chalk); font-size:13px;
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  border-left:2px solid transparent;
+}
+.navi button:hover{ background:var(--void); }
+.navi button.an{ border-left-color:var(--chalk); background:var(--void); font-weight:500; }
+.navi button .zahl{ font-family:var(--mono); font-size:10px; color:var(--mute); }
+
+/* Werkbank-Bedienung */
+.werkzeuge{ padding:10px 14px 16px; display:flex; flex-direction:column; gap:7px; }
+.knopf{
+  border:1px solid var(--edge); border-radius:3px; padding:7px 10px;
+  color:var(--chalk); text-align:left; font-size:12px; background:var(--void);
+}
+.knopf:hover{ border-color:var(--mute); }
+.knopf:disabled{ opacity:.4; cursor:default; }
+.knopf.haupt{ border-color:var(--mute); font-weight:500; }
+.knopf.laeuft{ border-color:var(--chalk); }
+.knopf .neben{ display:block; color:var(--mute); font-size:11px; font-weight:400; }
+
+.schalter{ display:flex; border:1px solid var(--edge); border-radius:3px; overflow:hidden; }
+.schalter button{ flex:1; padding:6px 4px; font-size:11px; color:var(--mute); background:var(--void); }
+.schalter button.an{ background:var(--edge); color:var(--chalk); }
+
+/* ─── Gerät ──────────────────────────────────────────────────────────────── */
+
+#geraet{
+  background:var(--shell); border:1px solid var(--edge); border-radius:9px;
+  padding:13px 13px 9px; box-shadow:0 18px 44px rgba(0,0,0,.55);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+#buehne{ position:relative; overflow:hidden; }
+#rahmen{ transform-origin:top left; position:absolute; top:0; left:0; }
+
+/* Das Panel. Exakt 480 × 800, wird nur skaliert, nie umgelayoutet. */
+#screen{
+  width:480px; height:800px; position:relative; overflow:hidden;
+  background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.4;
+}
+#screen.invertiert{ filter:invert(1); }
+
+/* Geisterbild: der vorige Inhalt, durch eine Punktmaske auf Reste reduziert. */
+#geist{
+  position:absolute; inset:0; pointer-events:none; overflow:hidden;
+  -webkit-user-select:none; user-select:none;
+  -webkit-mask-image:var(--maske-1); mask-image:var(--maske-1);
+  -webkit-mask-repeat:repeat; mask-repeat:repeat; display:none;
+}
+#geist.stufe1{ -webkit-mask-image:var(--maske-1); mask-image:var(--maske-1); }
+#geist.stufe2{ -webkit-mask-image:var(--maske-2); mask-image:var(--maske-2); }
+#geist.stufe3{ -webkit-mask-image:var(--maske-3); mask-image:var(--maske-3); }
+
+/* Der Wisch beim Partial-Refresh: gedithert, kein flaches Grau. */
+#wisch{ position:absolute; inset:0; pointer-events:none; display:none; background-image:var(--raster-2); }
+#wisch.fein{ background-image:var(--raster-4); }
+
+#knebel{ display:flex; align-items:center; gap:9px; color:var(--mute); font-size:11px; font-family:var(--mono); }
+#knebel .rad{ width:15px; height:15px; border:1px solid var(--edge); border-radius:50%; display:grid; place-items:center; }
+#knebel .rad i{ width:4px; height:4px; background:var(--mute); border-radius:50%; display:block; }
+#knebel button{ color:var(--chalk); border:1px solid var(--edge); border-radius:3px; padding:2px 8px; font-family:var(--mono); font-size:11px; }
+#knebel button:hover{ border-color:var(--mute); }
+
+#unterbau{ display:flex; gap:7px; flex-wrap:wrap; justify-content:center; max-width:520px; }
+#unterbau .knopf{ padding:5px 9px; font-size:11px; }
+
+/* ─── Rechte Spalte ──────────────────────────────────────────────────────── */
+
+#log{
+  flex:1 1 auto; min-height:120px; overflow:auto; padding:0 12px 10px;
+  font-family:var(--mono); font-size:10px; line-height:1.7; color:var(--mute);
+  scrollbar-width:thin;
+}
+/* Lange Log-Zeilen brechen mit hängendem Einzug um, statt rechts zu
+   verschwinden — Zeitstempel (12) + Modul (7) + Abstände = 23 Zeichen. */
+#log div{ white-space:pre-wrap; padding-left:23ch; text-indent:-23ch; }
+#log b{ color:var(--chalk); font-weight:500; }
+#log .modul{ color:var(--chalk); }
+
+#stufen{ border-top:1px solid var(--edge); padding:0 12px 12px; }
+.stufe{ display:flex; align-items:center; gap:8px; padding:2px 0; font-size:11.5px; color:var(--mute); }
+.stufe .punkt{ width:7px; height:7px; border:1px solid var(--edge); flex:none; }
+.stufe.an{ color:var(--chalk); }
+.stufe.an .punkt{ background:var(--chalk); border-color:var(--chalk); }
+.stufe.fertig .punkt{ background:var(--mute); border-color:var(--mute); }
+
+#hardware{ border-top:1px solid var(--edge); padding:0 12px 12px; }
+.messwert{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:10.5px; padding:2px 0; }
+.messwert span:first-child{ color:var(--mute); }
+.messwert.warn span:last-child{ color:var(--chalk); font-weight:500; }
+
+/* ─── Panel-Innenleben ───────────────────────────────────────────────────── */
+
+.statusleiste{
+  height:30px; border-bottom:1px solid var(--ink); display:flex; align-items:center;
+  justify-content:space-between; padding:0 12px; font-size:11px; letter-spacing:.03em;
+}
+.statusleiste .rechts{ display:flex; align-items:center; gap:10px; }
+.statusleiste .stueck{ display:flex; align-items:center; gap:4px; }
+.statusleiste svg{ display:block; }
+
+.fussleiste{
+  position:absolute; left:0; right:0; bottom:0; height:34px;
+  border-top:1px solid var(--ink); display:flex; align-items:center;
+  justify-content:space-around; font-size:12px; letter-spacing:.02em;
+}
+
+.inhalt{ position:absolute; top:30px; bottom:34px; left:0; right:0; overflow:hidden; padding:16px 18px; }
+#screen.aus .statusleiste, #screen.aus .fussleiste{ display:none; }
+#screen.aus .inhalt{ top:0; bottom:0; }
+
+.aus-hinweis{
+  position:absolute; left:0; right:0; bottom:0; padding:7px 18px;
+  border-top:1px solid var(--ink); font-size:11px; display:flex; justify-content:space-between;
+}
+
+/* Bausteine auf dem Papier — alles hart, 1 px oder 2 px, keine Rundung */
+.trenner{ height:1px; background:var(--ink); margin:13px 0; }
+.trenner.stark{ height:2px; }
+.ueber{ font-size:11px; letter-spacing:.06em; margin-bottom:7px; }
+.tag{ font-family:var(--serif); font-size:34px; line-height:1.1; font-weight:600; }
+.tag .klein{ display:block; font-size:13px; font-weight:400; font-family:var(--sans); letter-spacing:.04em; margin-top:3px; }
+.zeile{ display:flex; gap:9px; align-items:baseline; padding:3px 0; }
+.zeile .uhr{ font-family:var(--mono); font-size:12px; flex:none; width:42px; }
+.zeile .txt{ flex:1; }
+.mono{ font-family:var(--mono); }
+.leise{ font-size:11.5px; }
+.serifentext{ font-family:var(--serif); font-size:15px; line-height:1.55; }
+
+.chip{ font-family:var(--mono); font-size:10px; border:1px solid var(--ink); padding:0 4px; margin-right:4px; display:inline-block; line-height:15px; }
+.kasten{ flex:none; }
+
+.block{ border:1px solid var(--ink); padding:9px 10px; }
+.block.stark{ border-width:2px; }
+
+/* Auswahl und Markierung sind immer invertierte Blöcke, nie Flächen in Grau */
+.invers{ background:var(--ink); color:var(--paper); }
+.invers .chip{ border-color:var(--paper); }
+
+.liste-zeile{ display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; gap:10px; }
+.liste-zeile .anz{ font-family:var(--mono); font-size:11px; flex:none; }
+
+.balken{ display:flex; align-items:flex-end; gap:2px; height:64px; }
+.balken i{ width:4px; background:var(--ink); display:block; }
+
+.klickbar{ cursor:pointer; }
+.klickbar:hover{ outline:1px solid var(--ink); outline-offset:2px; }
+
+/* Aufnahme-Overlay */
+#aufnahme{
+  position:absolute; inset:0; background:var(--paper); display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:22px; z-index:3;
+}
+#aufnahme.an{ display:flex; }
+#aufnahme .zeit{ font-family:var(--mono); font-size:44px; letter-spacing:.02em; }
+#aufnahme .was{ font-size:12px; letter-spacing:.06em; }
+#aufnahme .punktreihe{ width:340px; height:2px; background:var(--ink); }
+
+@media (max-width:1100px){
+  #app{ grid-template-columns:210px 1fr; grid-template-rows:38px 1fr auto;
+        grid-template-areas:"kopf kopf" "links mitte" "rechts rechts"; }
+  #rechts{ border-left:none; border-top:1px solid var(--edge); max-height:230px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="kopf">
+    <div class="marke">STASH <span>· muss ich nicht im Kopf haben</span></div>
+    <div class="brain" id="brainstatus"><i class="led"></i> pi5-brain · online</div>
+  </div>
+
+  <div id="links">
+    <div class="rubrik">Ansichten</div>
+    <div class="navi" id="navi"></div>
+    <div class="rubrik">Werkbank</div>
+    <div class="werkzeuge">
+      <button class="knopf haupt" id="btn-aufnehmen">▸ Sprachnotiz aufnehmen<span class="neben" id="btn-aufnehmen-neben">nächste: Überdachung</span></button>
+      <button class="knopf" id="btn-wlan">WLAN aus</button>
+      <button class="knopf" id="btn-zuruecksetzen">Zurücksetzen</button>
+    </div>
+  </div>
+
+  <div id="mitte">
+    <div id="geraet">
+      <div id="buehne">
+        <div id="rahmen">
+          <div id="screen">
+            <div id="geist" aria-hidden="true"></div>
+            <div id="blatt"></div>
+            <div id="aufnahme">
+              <div class="was">AUFNAHME LÄUFT</div>
+              <div class="zeit" id="aufnahme-zeit">0,0 s</div>
+              <div class="balken" id="aufnahme-welle"></div>
+              <div class="punktreihe"></div>
+              <div class="was leise" id="aufnahme-neben">16 kHz mono · ES8311</div>
+            </div>
+            <div id="wisch"></div>
+          </div>
+        </div>
+      </div>
+      <div id="knebel">
+        <button id="knebel-links">◀</button>
+        <div class="rad"><i></i></div>
+        <button id="knebel-mitte">●</button>
+        <button id="knebel-rechts">▶</button>
+        <span id="knebel-text">zurück · aufnehmen · weiter</span>
+      </div>
+    </div>
+    <div id="unterbau">
+      <button class="knopf" id="btn-voll">Vollrefresh</button>
+      <button class="knopf" id="btn-aus">Gerät aus</button>
+      <div class="schalter" style="width:150px">
+        <button id="btn-serif" class="an">Serif</button>
+        <button id="btn-sans">Sans</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rechts">
+    <div class="rubrik">Brain-Log</div>
+    <div id="log"></div>
+    <div id="stufen">
+      <div class="rubrik" style="padding-left:0">Pipeline</div>
+      <div id="stufenliste"></div>
+    </div>
+    <div id="hardware">
+      <div class="rubrik" style="padding-left:0">Hardware</div>
+      <div id="messwerte"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════════
+   1 · Konstanten
+   Alle Zeit- und Durchsatzwerte sind geschätzt und stehen hier oben, damit
+   sie an einer Stelle ersetzt werden können, sobald Whisper das erste Mal
+   echt auf dem Pi läuft. Kein Wert ist gemessen.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const T = {
+  ABTASTRATE:      16000,  // Hz, mono, 16 bit → 32 kB/s auf der SD
+  BREITE_BYTES:        2,  // 16 bit pro Abtastwert
+
+  VAD_VORLAUF_MS:    120,  // von Sprachaktivität bis Aufnahmebeginn
+  QUEUE_MS:            4,  // Datei auf der SD abschließen und umbenennen
+  NETZ_PROBE_MS:     126,  // pi5-brain.local auflösen und anpingen
+  WLAN_KB_PRO_S:     790,  // ESP32-S3 über 2,4-GHz-WLAN bei −54 dBm
+  WHISPER_RTF:      0.43,  // faster-whisper small int8 auf Pi 5, Faktor auf die Audiolänge
+  CLEAN_MS:          630,  // Füllwörter raus, Sätze normalisieren
+  KEYS_MS:           740,  // Schlagwortextraktion
+  ROUTE_MS:            4,  // Einsortieren, reine Rechnung auf den Schlagwörtern
+  TASKS_MS:          106,  // CalDAV-Schreibvorgang für die Erinnerungen
+  VAULT_MS:          220,  // Markdown in den Obsidian-Vault schreiben
+  RENDER_MS:         208,  // 480 × 800 nach 1 Bit rendern
+  BLE_KBIT_S:        720,  // BLE 5, 2M PHY, realistischer Nutzdatendurchsatz
+
+  PARTIAL_MS:        340,  // Partial-Refresh des Panels
+  PARTIAL_WISCH_MS:  110,  // davon sichtbarer Wisch
+  VOLL_MS:          2400,  // Vollrefresh mit Invertieren
+  PARTIAL_MAX:        12,  // danach ist ein Vollrefresh fällig
+
+  WARTESCHLANGE_MS: 1500,  // Abstand beim Abarbeiten des Staus
+  NAECHSTER_VERSUCH:  30,  // s bis zum nächsten Upload-Versuch offline
+};
+
+// Aus den Konstanten abgeleitet, damit die Zahlen im Log zueinander passen.
+const bytesFuer   = s => Math.round(s * T.ABTASTRATE * T.BREITE_BYTES);
+const uploadMsFuer= s => Math.round(bytesFuer(s) / 1000 / T.WLAN_KB_PRO_S * 1000);
+const whisperMs   = s => Math.round(s * T.WHISPER_RTF * 1000);
+const bleMsFuer   = kb => Math.round(kb * 8 / T.BLE_KBIT_S * 1000);
+const RENDER_KB   = Math.round(480 * 800 / 8 / 1000);   // 1 Bit pro Pixel = 48 kB
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2 · Demo-Inhalte
+   Deutsch, alltäglich. Die rohen Fassungen sind bewusst roh: Ähms,
+   Selbstkorrekturen, halbe Sätze. Der Kontrast zur bereinigten Fassung ist
+   der Punkt, an dem das Ganze überzeugt oder nicht.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const AUFNAHMEN = [
+{
+  kurz:'Überdachung', dauer:11.4, konfidenz:0.94, art:'liste', ziel:'überdachung',
+  score:0.91, begruendung:'Schlagwort „überdachung" trifft direkt, „pfosten" ist Trigger-Wort',
+  schlagwoerter:['überdachung','material','bestellen'],
+  roh:'Ähm, also für die Überdachung, ich brauch noch, warte, vier Pfosten neun mal neun in vier Meter, und dann noch, ähm, die Winkel, die verzinkten, so acht Stück würd ich sagen. Und ich muss noch mal nachmessen wie breit das jetzt wirklich ist hinten, weil das war ja, ähm, das war ja nicht ganz gerade da an der Wand.',
+  rein:'Für die Überdachung fehlen vier Pfosten 9 × 9 cm in 4 m Länge und acht verzinkte Winkel. Die Breite hinten noch einmal nachmessen, die Wand ist nicht ganz gerade.',
+  aufgaben:['Pfosten 9 × 9 und Winkel bestellen','Breite an der Wand nachmessen'],
+},
+{
+  kurz:'Gehäuse', dauer:14.1, konfidenz:0.91, art:'neu', ziel:'gehäuse',
+  score:0.41, bestesZiel:'ideen',
+  begruendung:'kein Treffer über der Schwelle 0.62 — bestes Ziel #ideen mit 0.41',
+  schlagwoerter:['gehäuse','3d-druck','magnete'],
+  roh:'Mir ist grad eingefallen für das Gehäuse, ähm, wenn ich das zweiteilig drucke, also Rückschale und Frontplatte getrennt, dann, äh, dann kann ich die Front mit Magneten machen. So kleine Neodym, sechs mal drei, und dann komm ich an die SD-Karte ran ohne dass ich, ähm, ohne dass ich das ganze Ding auseinanderschrauben muss. Das wär eigentlich, ja, das wär ziemlich gut.',
+  rein:'Idee fürs Gehäuse: zweiteilig drucken, Rückschale und Frontplatte getrennt. Die Frontplatte mit Neodym-Magneten 6 × 3 mm halten, dann ist die SD-Karte erreichbar, ohne das Gehäuse aufzuschrauben.',
+  aufgaben:['Neodym-Magnete 6 × 3 mm bestellen'],
+},
+{
+  kurz:'Feierabend', dauer:19.6, konfidenz:0.93, art:'tagebuch',
+  score:0.88, begruendung:'Erzählform in der Vergangenheit, kein Auftrag, kein Termin',
+  schlagwoerter:['tagebuch','fundament','pv-anlage'],
+  roh:'So, Feierabend. Also heut war ich hauptsächlich draußen, hab die, äh, die Fundamentlöcher fertig gemacht, drei von vier. Das vierte, da kam ich nicht durch, da ist irgendwas drin, wahrscheinlich noch so ein Betonrest von der alten Garage. Ähm. Und nachmittags dann, ja, dann hab ich noch die Auswertung von der PV angeschaut, letzte Woche warens achtzehn Komma vier Kilowattstunden am Tag im Schnitt, das ist mehr als ich dachte.',
+  rein:'Hauptsächlich draußen gewesen. Drei von vier Fundamentlöchern fertig; beim vierten sitzt etwas im Boden, vermutlich ein Betonrest der alten Garage. Nachmittags die PV-Auswertung angesehen: letzte Woche im Schnitt 18,4 kWh pro Tag, mehr als erwartet.',
+  aufgaben:[],
+},
+{
+  kurz:'Einkauf', dauer:6.2, konfidenz:0.97, art:'liste', ziel:'einkauf',
+  score:0.98, begruendung:'Schlagwort „einkaufen" ist Trigger-Wort der festen Liste',
+  schlagwoerter:['einkauf'],
+  roh:'Einkaufen: Kaffee, äh, Haferflocken und, warte, ach ja, Spülmaschinentabs. Also Kaffee, Haferflocken, Spülmaschinentabs.',
+  rein:'Einkaufen: Kaffee, Haferflocken, Spülmaschinentabs.',
+  aufgaben:['Kaffee','Haferflocken','Spülmaschinentabs'],
+},
+{
+  kurz:'Termin', dauer:8.3, konfidenz:0.95, art:'liste', ziel:'termine', termin:true,
+  score:0.96, begruendung:'Wochentag und Uhrzeit erkannt, Trigger-Wort „kommt"',
+  schlagwoerter:['termine','schornsteinfeger'],
+  roh:'Ähm, Donnerstag um halb elf kommt der Schornsteinfeger, das muss ich, äh, das muss ich mir unbedingt merken. Donnerstag, halb elf.',
+  rein:'Donnerstag, 10:30 Uhr: Schornsteinfeger kommt.',
+  aufgaben:['Schornsteinfeger · Do 10:30'],
+},
+];
+
+const LISTEN = {
+  'einkauf':    {art:'fest', anz:3,  seit:null,      trigger:['einkaufen','besorgen','holen','aufschreiben','liste']},
+  'tagebuch':   {art:'fest', anz:41, seit:null,      trigger:['heute war','feierabend','rückblick','gewesen']},
+  'ideen':      {art:'fest', anz:12, seit:null,      trigger:['idee','einfall','vielleicht könnte','was wäre wenn']},
+  'termine':    {art:'fest', anz:6,  seit:null,      trigger:['termin','kommt','uhr','wochentag + uhrzeit']},
+  'überdachung':{art:'gewachsen', anz:14, seit:'12.04.', trigger:['überdachung','pfosten','sparren','dachlatten','doppelstegplatten','fundament']},
+  'pv-anlage':  {art:'gewachsen', anz:9,  seit:'03.05.', trigger:['pv','wechselrichter','einspeisung','kilowattstunden','ertrag']},
+  'obsidian':   {art:'gewachsen', anz:5,  seit:'21.06.', trigger:['obsidian','vault','plugin','markdown']},
+  'dachrinne':  {art:'verblasst', anz:2,  seit:'19.03.', still:63, trigger:['dachrinne','fallrohr','regenrinne']},
+};
+
+const EINTRAEGE = {
+  'überdachung':[
+    {datum:'02.09.', txt:'Doppelstegplatten 16 mm, klar — Preis bei zwei Händlern vergleichen.'},
+    {datum:'28.08.', txt:'Neigung 8 Grad reicht laut Nachbar, mehr geht wegen der Fenster oben nicht.'},
+    {datum:'21.08.', txt:'Sparren 6 × 12, Abstand 70 cm. Passt auf die Breite ohne Rest.'},
+  ],
+  'aufgaben':[
+    {txt:'Pfosten 9 × 9 und Winkel bestellen', fertig:false},
+    {txt:'Breite an der Wand nachmessen', fertig:false},
+    {txt:'Fundamentlöcher ausheben', fertig:true},
+  ],
+};
+
+const TAGEBUCH_HEUTE = [
+  {uhr:'09:12', txt:'Früh raus, es war noch kühl. Erst den Anhänger zurückgebracht, danach direkt am Fundament weiter.'},
+  {uhr:'13:40', txt:'Mittags kurz Pause. Der Boden hinten ist deutlich steiniger als vorne, das dauert länger als gedacht.'},
+];
+
+const ERINNERUNGEN = [
+  {txt:'Pfosten 9 × 9 und Winkel bestellen', fertig:false},
+  {txt:'Breite an der Wand nachmessen',      fertig:false},
+  {txt:'Anhänger zurückbringen',             fertig:true},
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3 · Zustand — nur in JS-Variablen, nichts wird gespeichert
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const S = {
+  ansicht:'heute', notizIdx:null, notizRoh:false,
+  wlan:true, an:true, serif:true, laeuft:false,
+  partial:0, naechste:0,
+  verarbeitet:[], warteschlange:[], offlineSeit:null,
+  listen:JSON.parse(JSON.stringify(LISTEN)),
+  tagebuch:TAGEBUCH_HEUTE.slice(),
+  erinnerungen:ERINNERUNGEN.map(e=>({...e})),
+  tagebuchZusammengefuehrt:null,
+  akkuProzent:78, sdBelegtMb:412,
+};
+
+const ANSICHTEN = [
+  {id:'heute',        titel:'Heute'},
+  {id:'eingang',      titel:'Eingang'},
+  {id:'listen',       titel:'Listen'},
+  {id:'detail',       titel:'#überdachung'},
+  {id:'notiz',        titel:'Notiz'},
+  {id:'tagebuch',     titel:'Tagebuch'},
+  {id:'kalender',     titel:'Kalender'},
+  {id:'warteschlange',titel:'Warteschlange'},
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4 · Kleinkram
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const $  = s => document.querySelector(s);
+const zw = n => String(n).padStart(2,'0');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const woerter = s => s.trim().split(/\s+/).length;
+const komma = (n,k=1) => n.toFixed(k).replace('.',',');
+
+const WOTAG = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const WOKURZ = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+const MONAT = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+const HEUTE = new Date();
+const uhrzeit = d => zw(d.getHours())+':'+zw(d.getMinutes());
+const stempel = d => zw(d.getHours())+':'+zw(d.getMinutes())+':'+zw(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0');
+function kalenderwoche(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay()||7));
+  return Math.ceil(((t - Date.UTC(t.getUTCFullYear(),0,1)) / 86400000 + 1)/7);
+}
+function wocheAbMontag(){
+  const start = new Date(HEUTE);
+  start.setDate(HEUTE.getDate() - ((HEUTE.getDay()+6)%7));
+  return Array.from({length:7}, (_,i)=>{ const d=new Date(start); d.setDate(start.getDate()+i); return d; });
+}
+// Feste Termine aus dem Apple-Kalender, relativ zur laufenden Woche
+const KALENDER = {1:[{uhr:'09:00',txt:'Zahnarzt'}], 3:[{uhr:'18:30',txt:'Elternabend'}], 4:[{uhr:'14:00',txt:'Lieferung Holz'}]};
+
+/* Symbole in der Statusleiste sind winzige Inline-SVGs, kein Unicode. */
+const IKON = {
+  wlan:(an)=>`<svg width="14" height="10" viewBox="0 0 14 10" shape-rendering="crispEdges" fill="none" stroke="currentColor">
+    <path d="M1 3.5C2.6 2 4.7 1.2 7 1.2s4.4 .8 6 2.3"/><path d="M3.3 5.8C4.3 4.9 5.6 4.4 7 4.4s2.7 .5 3.7 1.4"/>
+    <rect x="6.2" y="7.6" width="1.6" height="1.6" fill="currentColor" stroke="none"/>
+    ${an?'':'<path d="M1.5 9L12.5 1"/>'}</svg>`,
+  akku:(p)=>`<svg width="24" height="11" viewBox="0 0 24 11" shape-rendering="crispEdges" fill="none" stroke="currentColor">
+    <rect x="0.5" y="0.5" width="20" height="10"/><rect x="21.5" y="3.5" width="2" height="4" fill="currentColor" stroke="none"/>
+    <rect x="2" y="2" width="${Math.max(1,Math.round(17*p/100))}" height="7" fill="currentColor" stroke="none"/></svg>`,
+  stapel:()=>`<svg width="10" height="10" viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor">
+    <rect x="0" y="0" width="10" height="2"/><rect x="0" y="4" width="10" height="2"/><rect x="0" y="8" width="10" height="2"/></svg>`,
+  kasten:(f)=>`<svg class="kasten" width="12" height="12" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="none" stroke="currentColor">
+    <rect x="0.5" y="0.5" width="11" height="11"/>${f?'<path d="M2.5 6.2l2.4 2.4 4.6-5"/>':''}</svg>`,
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5 · Die acht Ansichten
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function statusleiste(){
+  const n = S.warteschlange.length;
+  return `<div class="statusleiste">
+    <div style="letter-spacing:.1em">STASH</div>
+    <div class="rechts">
+      ${n ? `<span class="stueck mono" style="font-size:11px">${IKON.stapel()} ${n}</span>` : ''}
+      <span class="stueck">${IKON.wlan(S.wlan)}</span>
+      <span class="stueck mono" style="font-size:11px">${IKON.akku(S.akkuProzent)} ${S.akkuProzent}%</span>
+      <span class="mono" style="font-size:11px">${uhrzeit(new Date())}</span>
+    </div></div>`;
+}
+function fussleiste(){
+  return `<div class="fussleiste"><span>◀ zurück</span><span>● aufnehmen</span><span>▶ weiter</span></div>`;
+}
+
+const V = {};
+
+V.heute = () => {
+  const naechste = [];
+  for(let d=0; d<7 && naechste.length<3; d++){
+    const tag = new Date(HEUTE); tag.setDate(HEUTE.getDate()+d);
+    (KALENDER[(tag.getDay()+6)%7] || []).forEach(t=>{
+      if(naechste.length<3) naechste.push({tag: d===0?'heute':d===1?'morgen':WOKURZ[tag.getDay()], uhr:t.uhr, txt:t.txt});
+    });
+  }
+  const offen = S.erinnerungen.filter(e=>!e.fertig);
+  const letzte = S.verarbeitet[S.verarbeitet.length-1];
+  const tbw = S.tagebuch.reduce((a,p)=>a+woerter(p.txt),0);
+  return `<div class="tag">${WOTAG[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MONAT[HEUTE.getMonth()]}
+      <span class="klein">KW ${kalenderwoche(HEUTE)} · ${HEUTE.getFullYear()}</span></div>
+    <div class="trenner stark"></div>
+    <div class="ueber">NÄCHSTE TERMINE</div>
+    ${naechste.length ? naechste.map(t=>`<div class="zeile"><span class="uhr">${t.uhr}</span>
+        <span class="txt">${esc(t.txt)}</span><span class="leise">${t.tag}</span></div>`).join('')
+      : '<div class="leise">Diese Woche nichts mehr.</div>'}
+    <div class="trenner"></div>
+    <div class="ueber">FÄLLIG</div>
+    ${offen.length ? offen.slice(0,3).map(e=>`<div class="zeile">${IKON.kasten(false)}
+        <span class="txt">${esc(e.txt)}</span></div>`).join('')
+      : '<div class="leise">Nichts offen.</div>'}
+    <div class="trenner"></div>
+    <div class="ueber">EINGANG</div>
+    <div class="zeile"><span class="txt"><span style="font-size:21px;font-family:var(--serif)">${S.verarbeitet.length}</span>
+      <span class="leise">&nbsp;${S.verarbeitet.length===1?'Aufnahme':'Aufnahmen'} heute${S.warteschlange.length?' · '+S.warteschlange.length+' wartend':''}</span></span></div>
+    ${letzte ? `<div class="leise" style="margin-top:4px">„${esc(letzte.rein.split('. ')[0])}…"</div>` : ''}
+    <div class="trenner"></div>
+    <div class="ueber">TAGEBUCH</div>
+    <div class="leise">${S.tagebuch.length} Absätze · ${tbw} Wörter</div>`;
+};
+
+V.eingang = () => {
+  if(!S.verarbeitet.length && !S.warteschlange.length)
+    return `<div class="ueber">EINGANG · HEUTE</div><div class="trenner stark"></div>
+      <div class="leise">Noch nichts aufgenommen.<br><br>Knopf drücken, drauflosreden, fertig.</div>`;
+  const zeile = (a,warten)=>`<div class="klickbar" data-notiz="${a.nr}" style="padding:7px 0">
+      <div class="zeile" style="padding:0">
+        <span class="uhr">${a.uhr}</span>
+        <span class="txt">${esc(a.rein.split('. ')[0])}${a.rein.includes('. ')?'.':''}</span>
+      </div>
+      <div class="zeile leise" style="padding:2px 0 0">
+        <span class="uhr">${komma(a.dauer)} s</span>
+        <span class="txt">${a.schlagwoerter.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}
+        <span style="float:right">${warten?'in Warteschlange':'verarbeitet'}</span></span>
+      </div></div>`;
+  return `<div class="ueber">EINGANG · HEUTE</div><div class="trenner stark"></div>
+    ${S.verarbeitet.slice().reverse().map(a=>zeile(a,false)).join('<div class="trenner" style="margin:6px 0"></div>')}
+    ${S.warteschlange.length && S.verarbeitet.length ? '<div class="trenner" style="margin:6px 0"></div>':''}
+    ${S.warteschlange.map(a=>zeile(a,true)).join('<div class="trenner" style="margin:6px 0"></div>')}`;
+};
+
+V.listen = () => {
+  const gruppe = art => Object.entries(S.listen).filter(([,l])=>l.art===art);
+  const rz = ([id,l]) => `<div class="liste-zeile ${id==='überdachung'?'klickbar':''}" ${id==='überdachung'?'data-ansicht="detail"':''}>
+      <span>#${esc(id)}${l.neu?' <span class="chip">neu</span>':''}</span>
+      <span class="anz">${l.anz}${l.seit?' · seit '+l.seit:''}</span></div>`;
+  const v = gruppe('verblasst');
+  return `<div class="ueber">LISTEN</div><div class="trenner stark"></div>
+    <div class="ueber">FEST</div>${gruppe('fest').map(rz).join('')}
+    <div class="trenner"></div>
+    <div class="ueber">GEWACHSEN</div>${gruppe('gewachsen').map(rz).join('')}
+    <div class="trenner"></div>
+    <div class="ueber">VERBLASST</div>
+    ${v.map(([id,l])=>`<div class="liste-zeile"><span>#${esc(id)}</span><span class="anz">${l.anz} · seit ${l.seit}</span></div>
+      <div class="block" style="margin-top:7px"><div class="leise">Seit ${l.still} Tagen nichts mehr dazugekommen.
+      Archivieren? Der Inhalt bleibt im Vault.</div></div>`).join('')}`;
+};
+
+V.detail = () => {
+  const l = S.listen['überdachung'];
+  return `<div class="ueber">LISTE</div>
+    <div style="font-family:var(--serif);font-size:26px;font-weight:600">#überdachung</div>
+    <div class="leise">${l.anz} Einträge · angelegt ${l.seit}</div>
+    <div class="trenner stark"></div>
+    ${EINTRAEGE['überdachung'].map(e=>`<div class="zeile"><span class="uhr">${e.datum}</span>
+      <span class="txt">${esc(e.txt)}</span></div>`).join('')}
+    <div class="trenner"></div>
+    <div class="ueber">AUFGABEN</div>
+    ${EINTRAEGE.aufgaben.map(a=>`<div class="zeile">${IKON.kasten(a.fertig)}
+      <span class="txt"${a.fertig?' style="text-decoration:line-through"':''}>${esc(a.txt)}</span></div>`).join('')}
+    <div class="trenner"></div>
+    <div class="block">
+      <div class="ueber" style="margin-bottom:5px">SORTIERT HIERHER BEI</div>
+      <div>${l.trigger.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>
+    </div>`;
+};
+
+V.notiz = () => {
+  const a = S.notizIdx!=null ? S.verarbeitet.find(x=>x.nr===S.notizIdx) : S.verarbeitet[S.verarbeitet.length-1];
+  if(!a) return `<div class="ueber">NOTIZ</div><div class="trenner stark"></div>
+    <div class="leise">Noch keine Aufnahme da.</div>`;
+  const txt = S.notizRoh ? a.roh : a.rein;
+  const w = (b)=>`<span class="chip ${(S.notizRoh?b==='roh':b==='rein')?'invers':''}" data-roh="${b==='roh'?1:0}"
+      style="cursor:pointer;padding:1px 7px">${b==='roh'?'Roh':'Bereinigt'}</span>`;
+  return `<div class="zeile" style="padding:0"><span class="uhr">${a.uhr}</span>
+      <span class="txt leise">${komma(a.dauer)} s · ${Math.round(bytesFuer(a.dauer)/1000)} kB</span>
+      <span>${w('rein')}${w('roh')}</span></div>
+    <div class="trenner stark"></div>
+    <div class="serifentext">${esc(txt)}</div>
+    <div class="trenner"></div>
+    <div class="block">
+      <div class="ueber" style="margin-bottom:6px">ERKANNT</div>
+      <div style="margin-bottom:6px">${a.schlagwoerter.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</div>
+      <div class="liste-zeile" style="padding:2px 0"><span>${a.art==='tagebuch'?'Tagebuch, heutiger Eintrag':'#'+esc(a.ziel)}${a.art==='neu'?' · neu angelegt':''}</span>
+        <span class="anz">Score ${a.art==='neu'?komma(a.score,2):komma(a.score,2)}</span></div>
+      <div class="leise" style="margin-bottom:6px">${esc(a.begruendung)}</div>
+      ${a.aufgaben.length?`<div class="ueber" style="margin:8px 0 4px">AUFGABEN</div>
+        ${a.aufgaben.map(t=>`<div class="zeile" style="padding:1px 0">${IKON.kasten(false)}<span class="txt">${esc(t)}</span></div>`).join('')}`:''}
+      <div class="trenner" style="margin:9px 0"></div>
+      <div class="liste-zeile leise" style="padding:1px 0"><span>Transkription</span><span class="anz">conf ${komma(a.konfidenz,2)}</span></div>
+      <div class="liste-zeile leise" style="padding:1px 0"><span>Audio wird gelöscht</span><span class="anz">${a.loeschung}</span></div>
+    </div>`;
+};
+
+V.tagebuch = () => {
+  const w = S.tagebuch.reduce((a,p)=>a+woerter(p.txt),0);
+  return `<div class="ueber">TAGEBUCH</div>
+    <div style="font-family:var(--serif);font-size:22px;font-weight:600">${WOTAG[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MONAT[HEUTE.getMonth()]}</div>
+    <div class="trenner stark"></div>
+    ${S.tagebuch.map(p=>`<div style="margin-bottom:11px"><div class="mono leise" style="margin-bottom:2px">${p.uhr}</div>
+      <div class="serifentext">${esc(p.txt)}</div></div>`).join('')}
+    <div class="trenner"></div>
+    <div class="liste-zeile leise"><span>${w} Wörter · ${S.tagebuch.length} Absätze</span>
+      <span class="anz">${S.tagebuchZusammengefuehrt?'zusammengeführt '+S.tagebuchZusammengefuehrt:'—'}</span></div>
+    <div class="liste-zeile leise" style="margin-top:9px"><span>◀ Vortag</span><span>Folgetag ▶</span></div>`;
+};
+
+V.kalender = () => {
+  const woche = wocheAbMontag(), idx = (HEUTE.getDay()+6)%7;
+  return `<div class="ueber">KALENDER · KW ${kalenderwoche(HEUTE)}</div><div class="trenner stark"></div>
+    ${woche.map((d,i)=>{
+      const t = KALENDER[i]||[];
+      return `<div class="${i===idx?'invers':''}" style="padding:6px 8px;margin:0 -8px">
+        <div class="liste-zeile" style="padding:0">
+          <span><b style="font-weight:600">${WOKURZ[d.getDay()]}</b> ${zw(d.getDate())}.${zw(d.getMonth()+1)}.</span>
+          <span class="anz">${t.length?'':'—'}</span></div>
+        ${t.map(e=>`<div class="zeile" style="padding:2px 0 0"><span class="uhr">${e.uhr}</span>
+          <span class="txt">${esc(e.txt)}</span></div>`).join('')}
+      </div>${i<6?'<div class="trenner" style="margin:5px 0"></div>':''}`;
+    }).join('')}`;
+};
+
+V.warteschlange = () => {
+  const gesamt = S.warteschlange.reduce((a,x)=>a+bytesFuer(x.dauer),0);
+  const frei = 29800 - S.sdBelegtMb;                   // 32-GB-Karte, FAT32
+  const stundenReichweite = Math.round(frei / (32*3600/1000) * 10)/10;
+  return `<div class="ueber">WARTESCHLANGE</div><div class="trenner stark"></div>
+    ${S.wlan
+      ? '<div class="leise">Verbunden. Nichts wartet.</div>'
+      : `<div class="block stark"><div>Offline seit ${S.offlineSeit?minutenSeit(S.offlineSeit):'0 min'}</div>
+         <div class="leise">Nächster Versuch in ${S.naechsterVersuch||T.NAECHSTER_VERSUCH} s</div></div>`}
+    ${S.warteschlange.length?`<div class="trenner"></div>
+      ${S.warteschlange.map((a,i)=>`<div class="zeile"><span class="uhr">${a.uhr}</span>
+        <span class="txt">${komma(a.dauer)} s · ${Math.round(bytesFuer(a.dauer)/1000)} kB</span>
+        <span class="leise">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}
+      <div class="leise" style="margin-top:7px">${S.warteschlange.length} Aufnahmen · ${Math.round(gesamt/1000)} kB auf der SD-Karte</div>`:''}
+    <div class="trenner"></div>
+    <div class="ueber">SD-KARTE</div>
+    <div class="liste-zeile"><span>belegt</span><span class="anz">${(S.sdBelegtMb/1000).toFixed(1).replace('.',',')} GB von 29,8 GB</span></div>
+    <div class="liste-zeile"><span>Restreichweite</span><span class="anz">${komma(stundenReichweite)} h Aufnahme</span></div>`;
+};
+
+function minutenSeit(t){ const m = Math.max(0,Math.round((Date.now()-t)/60000)); return m<1?'unter 1 min':m+' min'; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6 · Panel: malen, Partial- und Vollrefresh, Geisterbilder
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const blatt = $('#blatt'), screen_ = $('#screen'), geist = $('#geist'), wisch = $('#wisch');
+blatt.style.cssText = 'position:absolute;inset:0;z-index:2';
+geist.style.zIndex = '1';
+
+const inhaltHtml = () => statusleiste() + '<div class="inhalt">' + V[S.ansicht]() + '</div>' + fussleiste();
+const ausHinweis = () => '<div class="aus-hinweis"><span>Gerät aus</span><span>Bild bleibt ohne Strom stehen</span></div>';
+
+function malen(){
+  blatt.innerHTML = inhaltHtml() + (S.an ? '' : ausHinweis());
+  screen_.classList.toggle('aus', !S.an);
+  screen_.style.setProperty('--serif', S.serif
+    ? "'Literata','Iowan Old Style','Palatino Linotype',Georgia,serif" : "var(--sans)");
+  naviMalen(); messwerteMalen();
+}
+
+function geistSetzen(altesHtml){
+  if(!altesHtml || S.partial===0){ geist.style.display='none'; geist.innerHTML=''; return; }
+  geist.innerHTML = altesHtml;
+  geist.className = 'stufe' + Math.min(3, Math.ceil(S.partial/4));
+  geist.style.display = 'block';
+}
+
+/* Partial-Refresh: kurzer geditherter Wisch, darunter wechselt der Inhalt.
+   Danach bleibt ein Rest des alten Bildes als Punktraster stehen. */
+function partialRefresh(fertig){
+  const alt = blatt.innerHTML;
+  wisch.style.display = 'block';
+  wisch.classList.toggle('fein', S.partial % 2 === 0);
+  setTimeout(()=>{
+    S.partial++;
+    malen();
+    geistSetzen(alt);
+  }, T.PARTIAL_WISCH_MS/2);
+  setTimeout(()=>{ wisch.style.display='none'; }, T.PARTIAL_WISCH_MS);
+  setTimeout(()=>{ messwerteMalen(); fertig && fertig(); }, T.PARTIAL_MS);
+}
+
+/* Vollrefresh: komplett invertieren, zurück, wieder invertieren — danach ist
+   das Geisterbild weg und der Zähler steht auf null. */
+function vollrefresh(fertig){
+  const plan = [[0,1],[260,0],[520,1],[780,0],[1300,1],[1560,0]];
+  plan.forEach(([ms,an])=>setTimeout(()=>screen_.classList.toggle('invertiert', !!an), ms));
+  setTimeout(()=>{ S.partial = 0; malen(); geistSetzen(null); }, 1040);
+  setTimeout(()=>{ messwerteMalen(); fertig && fertig(); }, T.VOLL_MS);
+  log('epd', 'Vollrefresh ' + komma(T.VOLL_MS/1000) + ' s · Geisterbild gelöscht');
+}
+
+function wechsel(id, ohneRefresh){
+  if(!V[id] || S.ansicht===id) { if(S.ansicht===id) return; }
+  S.ansicht = id;
+  if(ohneRefresh) malen(); else partialRefresh();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7 · Werkbank: Log, Pipeline, Messwerte, Ansichtenliste
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const STUFEN = ['Mikrofon','SD-Puffer','Upload','Transkription','Aufräumen',
+                'Schlagwörter','Einsortieren','Vault','Rendern','Panel'];
+
+function log(modul, text){
+  const d = document.createElement('div');
+  d.innerHTML = stempel(new Date()) + '  <span class="modul">' + modul.padEnd(7) + '</span>  ' + esc(text);
+  const l = $('#log'); l.appendChild(d); l.scrollTop = l.scrollHeight;
+  while(l.children.length > 260) l.removeChild(l.firstChild);
+}
+
+function stufenMalen(){
+  $('#stufenliste').innerHTML = STUFEN.map((s,i)=>
+    `<div class="stufe" data-stufe="${i}"><span class="punkt"></span>${s}</div>`).join('');
+}
+function stufe(i){
+  document.querySelectorAll('.stufe').forEach((el,j)=>{
+    el.classList.toggle('an', j===i);
+    el.classList.toggle('fertig', i>=0 && j<i);
+  });
+}
+
+function messwerteMalen(){
+  const tage = Math.max(1, Math.round(S.akkuProzent * 0.115));
+  const faellig = S.partial >= T.PARTIAL_MAX;
+  const z = [
+    ['Akku',    S.akkuProzent + ' % · ~' + tage + ' Tage'],
+    ['SHTC3',   '21,4 °C · 46 % rF'],
+    ['RTC',     stempel(new Date()).slice(0,8)],
+    ['SD',      (S.sdBelegtMb/1000).toFixed(1).replace('.',',') + ' / 29,8 GB'],
+    ['RSSI',    S.wlan ? '−54 dBm' : 'offline'],
+    ['Refresh', 'Partial ' + S.partial + '/' + T.PARTIAL_MAX + (faellig ? ' → fällig' : '')],
+  ];
+  $('#messwerte').innerHTML = z.map(([k,v],i)=>
+    `<div class="messwert${i===5&&faellig?' warn':''}"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+function naviMalen(){
+  $('#navi').innerHTML = ANSICHTEN.map(a=>{
+    let z = '';
+    if(a.id==='eingang')       z = S.verarbeitet.length || '';
+    if(a.id==='warteschlange') z = S.warteschlange.length || '';
+    if(a.id==='tagebuch')      z = S.tagebuch.length;
+    return `<button data-ansicht="${a.id}" class="${S.ansicht===a.id?'an':''}">
+      <span>${esc(a.titel)}</span><span class="zahl">${z}</span></button>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8 · Die Pipeline — der Weg einer Aufnahme
+   ══════════════════════════════════════════════════════════════════════════ */
+
+let laufNr = 0, welleTimer = null, zeitTimer = null;
+
+function aufnehmen(){
+  if(S.laeuft) return;
+  if(!S.an){ log('sys','Gerät ist aus'); return; }
+  S.laeuft = true;
+  const a = { ...AUFNAHMEN[S.naechste % AUFNAHMEN.length] };
+  S.naechste++;
+  a.nr  = ++laufNr;
+  a.uhr = uhrzeit(new Date());
+  const loesch = new Date(); loesch.setDate(loesch.getDate() + 30);
+  a.loeschung = zw(loesch.getDate()) + '.' + zw(loesch.getMonth()+1) + '.';
+
+  knopfStand();
+  stufe(0);
+  log('vad', 'Sprachaktivität erkannt (−31 dBFS)');
+  log('rec', 'Aufnahme läuft · ' + (T.ABTASTRATE/1000) + ' kHz mono · ES8311');
+
+  const ov = $('#aufnahme'); ov.classList.add('an');
+  $('#aufnahme-neben').textContent = (T.ABTASTRATE/1000) + ' kHz mono · ES8311';
+  const welle = $('#aufnahme-welle');
+  welle.innerHTML = Array.from({length:44}, ()=>'<i style="height:3px"></i>').join('');
+  const balken = welle.querySelectorAll('i');
+  welleTimer = setInterval(()=>{
+    balken.forEach((b,i)=>{
+      const h = 4 + Math.round(Math.abs(Math.sin(Date.now()/210 + i*0.7)) * (12 + (i%5)*9) + Math.random()*13);
+      b.style.height = Math.min(62, h) + 'px';
+    });
+  }, 90);
+
+  const start = Date.now();
+  zeitTimer = setInterval(()=>{
+    const s = (Date.now()-start)/1000;
+    $('#aufnahme-zeit').textContent = komma(s) + ' s';
+    if(s >= a.dauer) stoppen();
+  }, 100);
+
+  function stoppen(){
+    clearInterval(welleTimer); clearInterval(zeitTimer);
+    ov.classList.remove('an');
+    const kb = Math.round(bytesFuer(a.dauer)/1000);
+    log('rec',   'gestoppt · ' + komma(a.dauer) + ' s · ' + kb + ' kB');
+    stufe(1);
+    setTimeout(()=>{
+      log('queue', '→ /sd/stash/q/' + (0x1000 + a.nr*0x2f3).toString(16) + '.wav');
+      S.sdBelegtMb += Math.round(bytesFuer(a.dauer)/1000/1000 * 10)/10;
+      if(S.wlan) verarbeiten(a);
+      else       stauen(a);
+    }, T.QUEUE_MS + 60);
+  }
+  aufnehmen.stoppen = stoppen;
+}
+
+function stauen(a){
+  S.warteschlange.push(a);
+  log('net', 'pi5-brain.local nicht erreichbar · Aufnahme bleibt auf der SD');
+  stufe(-1);
+  S.laeuft = false; knopfStand();
+  partialRefresh();
+}
+
+function verarbeiten(a, still){
+  S.laeuft = true; knopfStand();
+  const kb   = Math.round(bytesFuer(a.dauer)/1000);
+  const upMs = uploadMsFuer(a.dauer);
+  const wMs  = whisperMs(a.dauer);
+  const wZahl= woerter(a.rein);
+  const fuel = (a.roh.match(/\b(ähm|äh|also|warte|halt|eigentlich|ja)\b/gi) || []).length;
+  const bleMs= bleMsFuer(RENDER_KB);
+
+  const schritte = [
+    [T.NETZ_PROBE_MS, 2, ()=>log('net','pi5-brain.local erreichbar · RSSI −54 dBm')],
+    [upMs,            2, ()=>log('net','Upload ' + kb + ' kB in ' + upMs + ' ms')],
+    [wMs,             3, ()=>log('whisper','faster-whisper small int8 · ' + komma(wMs/1000) + ' s · ' + wZahl + ' Wörter · conf ' + komma(a.konfidenz,2))],
+    [T.CLEAN_MS,      4, ()=>log('clean', fuel + ' Füllwörter raus · Sätze normalisiert')],
+    [T.KEYS_MS,       5, ()=>log('keys', a.schlagwoerter.join(' · '))],
+    [T.ROUTE_MS,      6, ()=>{
+      if(a.art==='neu'){
+        log('route','kein Treffer über Schwelle 0.62 · bestes Ziel #' + a.bestesZiel + ' mit ' + komma(a.score,2));
+        log('route','neue Liste #' + a.ziel + ' angelegt');
+      } else if(a.art==='tagebuch'){
+        log('route','Tagebuch · Score ' + komma(a.score,2) + ' · an heutigen Eintrag angehängt');
+      } else {
+        const l = S.listen[a.ziel];
+        log('route','#' + a.ziel + ' · Score ' + komma(a.score,2) + ' · ' + (l && l.art==='fest' ? 'feste Liste' : 'gewachsene Liste'));
+      }
+    }],
+    [T.TASKS_MS,      6, ()=>{ if(a.aufgaben.length) log('tasks', a.aufgaben.length + (a.aufgaben.length===1?' Aufgabe':' Aufgaben') + ' → Apple Erinnerungen (CalDAV)'); }],
+    [T.VAULT_MS,      7, ()=>{
+      const pfad = a.art==='tagebuch'
+        ? '~/Obsidian/stash/Tagebuch/' + HEUTE.getFullYear() + '-' + zw(HEUTE.getMonth()+1) + '-' + zw(HEUTE.getDate()) + '.md'
+        : '~/Obsidian/stash/Listen/' + a.ziel + '.md';
+      log('vault', pfad + ' (+1)');
+      uebernehmen(a);
+    }],
+    [T.RENDER_MS,     8, ()=>log('render','1-bit 480×800 · ' + RENDER_KB + ' kB')],
+    [bleMs,           9, ()=>log('push','BLE → ESP32-S3 · ' + bleMs + ' ms')],
+  ];
+
+  let i = 0;
+  (function weiter(){
+    if(i >= schritte.length){
+      partialRefresh(()=>{
+        log('epd','Partial-Refresh ' + T.PARTIAL_MS + ' ms · Zähler ' + S.partial + '/' + T.PARTIAL_MAX);
+        if(S.partial >= T.PARTIAL_MAX) log('epd','Vollrefresh fällig');
+        stufe(-1);
+        S.laeuft = false; knopfStand();
+        if(!still) S.ansicht = 'notiz', S.notizIdx = a.nr, malen();
+      });
+      return;
+    }
+    const [ms, st, tun] = schritte[i++];
+    stufe(st);
+    setTimeout(()=>{ tun(); weiter(); }, Math.max(40, ms));
+  })();
+}
+
+/* Ergebnis in den Zustand übernehmen: Liste, Tagebuch, Erinnerungen. */
+function uebernehmen(a){
+  S.verarbeitet.push(a);
+  if(a.art==='neu'){
+    S.listen[a.ziel] = {art:'gewachsen', anz:1, seit:zw(HEUTE.getDate())+'.'+zw(HEUTE.getMonth()+1)+'.',
+                        neu:true, trigger:a.schlagwoerter.slice()};
+  } else if(a.art==='tagebuch'){
+    S.tagebuch.push({uhr:a.uhr, txt:a.rein});
+    S.tagebuchZusammengefuehrt = uhrzeit(new Date());
+    S.listen['tagebuch'].anz++;
+  } else if(S.listen[a.ziel]){
+    S.listen[a.ziel].anz++;
+  }
+  a.aufgaben.forEach(t=>S.erinnerungen.push({txt:t, fertig:false}));
+  S.akkuProzent = Math.max(4, S.akkuProzent - 1);
+}
+
+/* Stau abarbeiten, sobald das WLAN wieder da ist. */
+function stauAbarbeiten(){
+  if(!S.wlan || !S.warteschlange.length || S.laeuft) return;
+  const a = S.warteschlange.shift();
+  log('net','Warteschlange · ' + (S.warteschlange.length+1) + ' offen · beginne mit ' + a.uhr);
+  verarbeiten(a, S.warteschlange.length > 0);
+  const merken = setInterval(()=>{
+    if(!S.laeuft){ clearInterval(merken); setTimeout(stauAbarbeiten, T.WARTESCHLANGE_MS); }
+  }, 200);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9 · Bedienung an der Werkbank
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function knopfStand(){
+  const b = $('#btn-aufnehmen'), n = $('#btn-aufnehmen-neben');
+  b.classList.toggle('laeuft', S.laeuft);
+  b.disabled = !S.an;
+  b.firstChild.textContent = S.laeuft ? '■ läuft …' : '▸ Sprachnotiz aufnehmen';
+  n.textContent = S.laeuft ? 'Ablauf läuft' : 'nächste: ' + AUFNAHMEN[S.naechste % AUFNAHMEN.length].kurz;
+  $('#btn-wlan').textContent = S.wlan ? 'WLAN aus' : 'WLAN an';
+  $('#btn-aus').textContent  = S.an   ? 'Gerät aus' : 'Gerät an';
+  $('#brainstatus').classList.toggle('weg', !S.wlan);
+  $('#brainstatus').lastChild.textContent = S.wlan ? ' pi5-brain · online' : ' pi5-brain · nicht erreichbar';
+}
+
+$('#navi').addEventListener('click', e => {
+  const b = e.target.closest('[data-ansicht]');
+  if(b && S.an) wechsel(b.dataset.ansicht);
+});
+
+blatt.addEventListener('click', e => {
+  if(!S.an || S.laeuft) return;
+  const r = e.target.closest('[data-roh]');
+  if(r){ S.notizRoh = r.dataset.roh === '1'; partialRefresh(); return; }
+  const n = e.target.closest('[data-notiz]');
+  if(n){ S.notizIdx = +n.dataset.notiz; S.ansicht = 'notiz'; partialRefresh(); return; }
+  const a = e.target.closest('[data-ansicht]');
+  if(a){ wechsel(a.dataset.ansicht); }
+});
+
+$('#btn-aufnehmen').addEventListener('click', ()=>{ S.laeuft ? aufnehmen.stoppen && aufnehmen.stoppen() : aufnehmen(); });
+$('#knebel-mitte').addEventListener('click', ()=>{ S.laeuft ? aufnehmen.stoppen && aufnehmen.stoppen() : aufnehmen(); });
+$('#knebel-links').addEventListener('click',  ()=>blaettern(-1));
+$('#knebel-rechts').addEventListener('click', ()=>blaettern(+1));
+function blaettern(d){
+  if(!S.an || S.laeuft) return;
+  const i = ANSICHTEN.findIndex(a=>a.id===S.ansicht);
+  wechsel(ANSICHTEN[(i + d + ANSICHTEN.length) % ANSICHTEN.length].id);
+}
+
+$('#btn-voll').addEventListener('click', ()=>{ if(S.an && !S.laeuft) vollrefresh(); });
+
+$('#btn-aus').addEventListener('click', ()=>{
+  if(S.laeuft) return;
+  S.an = !S.an;
+  log('epd', S.an ? 'Panel aktiv · Statusleisten wieder da' : 'Panel stromlos · Bild bleibt stehen');
+  malen(); knopfStand();
+});
+
+$('#btn-serif').addEventListener('click', ()=>setzeSchrift(true));
+$('#btn-sans').addEventListener('click',  ()=>setzeSchrift(false));
+function setzeSchrift(serif){
+  S.serif = serif;
+  $('#btn-serif').classList.toggle('an', serif);
+  $('#btn-sans').classList.toggle('an', !serif);
+  if(S.an && !S.laeuft) partialRefresh(); else malen();
+}
+
+$('#btn-wlan').addEventListener('click', ()=>{
+  if(S.laeuft) return;
+  S.wlan = !S.wlan;
+  if(S.wlan){
+    S.offlineSeit = null;
+    log('net','WLAN verbunden · RSSI −54 dBm');
+    knopfStand();
+    if(S.warteschlange.length) setTimeout(stauAbarbeiten, 400); else partialRefresh();
+  } else {
+    S.offlineSeit = Date.now();
+    S.naechsterVersuch = T.NAECHSTER_VERSUCH;
+    log('net','WLAN getrennt · Aufnahmen bleiben in der Warteschlange');
+    knopfStand();
+    S.ansicht = 'warteschlange';
+    partialRefresh();
+  }
+});
+
+$('#btn-zuruecksetzen').addEventListener('click', ()=>{
+  if(S.laeuft) return;
+  Object.assign(S, {
+    ansicht:'heute', notizIdx:null, notizRoh:false, wlan:true, an:true,
+    partial:0, naechste:0, verarbeitet:[], warteschlange:[], offlineSeit:null,
+    listen:JSON.parse(JSON.stringify(LISTEN)), tagebuch:TAGEBUCH_HEUTE.slice(),
+    erinnerungen:ERINNERUNGEN.map(e=>({...e})), tagebuchZusammengefuehrt:null,
+    akkuProzent:78, sdBelegtMb:412,
+  });
+  laufNr = 0;
+  $('#log').innerHTML = '';
+  geistSetzen(null); stufe(-1); malen(); knopfStand();
+  log('sys','zurückgesetzt');
+});
+
+/* ─── Skalierung: der Screen bleibt 480 × 800 und wird nur skaliert ──────── */
+function skalieren(){
+  const verf = $('#mitte').clientHeight - 138;
+  const k = Math.max(0.40, Math.min(1, verf/800));
+  $('#rahmen').style.transform = 'scale(' + k + ')';
+  $('#buehne').style.width  = Math.round(480*k) + 'px';
+  $('#buehne').style.height = Math.round(800*k) + 'px';
+}
+window.addEventListener('resize', skalieren);
+
+/* ─── Sekundentakt: Uhr, RTC, Offline-Countdown ──────────────────────────── */
+setInterval(()=>{
+  messwerteMalen();
+  if(S.an && !S.laeuft){
+    const sl = blatt.querySelector('.statusleiste');
+    if(sl) sl.outerHTML = statusleiste();
+  }
+  if(!S.wlan){
+    S.naechsterVersuch = (S.naechsterVersuch||T.NAECHSTER_VERSUCH) - 1;
+    if(S.naechsterVersuch <= 0){
+      S.naechsterVersuch = T.NAECHSTER_VERSUCH;
+      log('net','Versuch · pi5-brain.local nicht erreichbar');
+    }
+    if(S.an && S.ansicht==='warteschlange' && !S.laeuft){
+      const i = blatt.querySelector('.inhalt');
+      if(i) i.innerHTML = V.warteschlange();
+    }
+  }
+}, 1000);
+
+/* ─── Start ──────────────────────────────────────────────────────────────── */
+stufenMalen(); stufe(-1); malen(); knopfStand(); skalieren();
+log('sys','STASH Showcase · Simulation, keine echte Hardware');
+log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
+log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
+log('sys','bereit · ● drücken oder „Sprachnotiz aufnehmen"');
+</script>
+</body>
+</html>
