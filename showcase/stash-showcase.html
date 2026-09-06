@@ -251,6 +251,32 @@ button{ font:inherit; color:inherit; background:none; border:none; cursor:pointe
         grid-template-areas:"kopf kopf" "links mitte" "rechts rechts"; }
   #rechts{ border-left:none; border-top:1px solid var(--edge); max-height:230px; }
 }
+@media (max-width:900px){
+  html,body{ height:auto; }
+  body{ overflow:auto; }
+  #app{ height:auto; min-height:100%; grid-template-columns:1fr;
+        grid-template-rows:38px auto auto auto;
+        grid-template-areas:"kopf" "mitte" "links" "rechts"; }
+  #mitte{ overflow:visible; padding:12px 0 4px; }
+  /* Grid-Kinder schrumpfen sonst nicht unter ihren Inhalt, und der
+     seitlich scrollende Ansichten-Streifen sprengt die Seitenbreite. */
+  #app, #links, #rechts, #mitte{ min-width:0; }
+  #links{ border-right:none; border-top:1px solid var(--edge); overflow:hidden; }
+  .navi{ flex-direction:row; overflow-x:auto; padding:0 8px 4px; scrollbar-width:thin; min-width:0; }
+  .navi button{ border-left:none; border-bottom:2px solid transparent;
+                white-space:nowrap; padding:7px 11px; }
+  .navi button.an{ border-left-color:transparent; border-bottom-color:var(--chalk); }
+  .navi button .zahl{ margin-left:6px; }
+  .werkzeuge{ flex-direction:row; flex-wrap:wrap; }
+  .werkzeuge .knopf{ flex:1 1 130px; }
+  #unterbau{ max-width:none; padding:0 10px; }
+  #rechts{ max-height:none; }
+  #log{ max-height:190px; }
+}
+@media (max-width:560px){
+  #kopf .marke span{ display:none; }
+  #kopf{ padding:0 10px; }
+}
 </style>
 </head>
 <body>
@@ -1060,8 +1086,10 @@ $('#btn-zuruecksetzen').addEventListener('click', ()=>{
 
 /* ─── Skalierung: der Screen bleibt 480 × 800 und wird nur skaliert ──────── */
 function skalieren(){
-  const verf = $('#mitte').clientHeight - 138;
-  const k = Math.max(0.40, Math.min(1, verf/800));
+  const schmal = window.innerWidth <= 900;
+  const hRaum = (schmal ? window.innerHeight*0.66 : $('#mitte').clientHeight) - 138;
+  const wRaum = (schmal ? window.innerWidth : $('#mitte').clientWidth) - 30;
+  const k = Math.max(0.30, Math.min(1, hRaum/800, wRaum/480));
   $('#rahmen').style.transform = 'scale(' + k + ')';
   $('#buehne').style.width  = Math.round(480*k) + 'px';
   $('#buehne').style.height = Math.round(800*k) + 'px';
