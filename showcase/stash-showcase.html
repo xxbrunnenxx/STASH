@@ -82,7 +82,7 @@ button{ font:inherit; color:inherit; background:none; border:none; cursor:pointe
 #mitte{ grid-area:mitte; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:14px 0; overflow:hidden; }
 
 .rubrik{
-  font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--mute);
+  font-size:11px; letter-spacing:.01em; color:var(--mute);
   padding:13px 14px 6px;
 }
 
@@ -208,7 +208,7 @@ button{ font:inherit; color:inherit; background:none; border:none; cursor:pointe
 /* Bausteine auf dem Papier — alles hart, 1 px oder 2 px, keine Rundung */
 .trenner{ height:1px; background:var(--ink); margin:13px 0; }
 .trenner.stark{ height:2px; }
-.ueber{ font-size:11px; letter-spacing:.06em; margin-bottom:7px; }
+.ueber{ font-size:12px; font-style:italic; margin-bottom:6px; }
 .tag{ font-family:var(--serif); font-size:34px; line-height:1.1; font-weight:600; }
 .tag .klein{ display:block; font-size:13px; font-weight:400; font-family:var(--sans); letter-spacing:.04em; margin-top:3px; }
 .zeile{ display:flex; gap:9px; align-items:baseline; padding:3px 0; }
@@ -235,7 +235,6 @@ button{ font:inherit; color:inherit; background:none; border:none; cursor:pointe
 .balken i{ width:4px; background:var(--ink); display:block; }
 
 .klickbar{ cursor:pointer; }
-.klickbar:hover{ outline:1px solid var(--ink); outline-offset:2px; }
 
 /* Aufnahme-Overlay */
 #aufnahme{
@@ -559,29 +558,30 @@ V.heute = () => {
   return `<div class="tag">${WOTAG[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MONAT[HEUTE.getMonth()]}
       <span class="klein">KW ${kalenderwoche(HEUTE)} · ${HEUTE.getFullYear()}</span></div>
     <div class="trenner stark"></div>
-    <div class="ueber">NÄCHSTE TERMINE</div>
+    <div class="ueber">Nächste Termine</div>
     ${naechste.length ? naechste.map(t=>`<div class="zeile"><span class="uhr">${t.uhr}</span>
         <span class="txt">${esc(t.txt)}</span><span class="leise">${t.tag}</span></div>`).join('')
       : '<div class="leise">Diese Woche nichts mehr.</div>'}
     <div class="trenner"></div>
-    <div class="ueber">FÄLLIG</div>
+    <div class="ueber">Fällig</div>
     ${offen.length ? offen.slice(0,3).map(e=>`<div class="zeile">${IKON.kasten(false)}
         <span class="txt">${esc(e.txt)}</span></div>`).join('')
       : '<div class="leise">Nichts offen.</div>'}
     <div class="trenner"></div>
-    <div class="ueber">EINGANG</div>
+    <div class="ueber">Eingang</div>
     <div class="zeile"><span class="txt"><span style="font-size:21px;font-family:var(--serif)">${S.verarbeitet.length}</span>
       <span class="leise">&nbsp;${S.verarbeitet.length===1?'Aufnahme':'Aufnahmen'} heute${S.warteschlange.length?' · '+S.warteschlange.length+' wartend':''}</span></span></div>
     ${letzte ? `<div class="leise" style="margin-top:4px">„${esc(letzte.rein.split('. ')[0])}…"</div>` : ''}
     <div class="trenner"></div>
-    <div class="ueber">TAGEBUCH</div>
+    <div class="ueber">Tagebuch</div>
     <div class="leise">${S.tagebuch.length} Absätze · ${tbw} Wörter</div>`;
 };
 
 V.eingang = () => {
   if(!S.verarbeitet.length && !S.warteschlange.length)
-    return `<div class="ueber">EINGANG · HEUTE</div><div class="trenner stark"></div>
-      <div class="leise">Noch nichts aufgenommen.<br><br>Knopf drücken, drauflosreden, fertig.</div>`;
+    return `<div class="serifentext" style="font-size:19px">Noch nichts aufgenommen.</div>
+      <div class="trenner stark"></div>
+      <div class="leise">Knopf drücken, drauflosreden, fertig.</div>`;
   const zeile = (a,warten)=>`<div class="klickbar" data-notiz="${a.nr}" style="padding:7px 0">
       <div class="zeile" style="padding:0">
         <span class="uhr">${a.uhr}</span>
@@ -592,7 +592,8 @@ V.eingang = () => {
         <span class="txt">${a.schlagwoerter.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}
         <span style="float:right">${warten?'in Warteschlange':'verarbeitet'}</span></span>
       </div></div>`;
-  return `<div class="ueber">EINGANG · HEUTE</div><div class="trenner stark"></div>
+  const gesamtHeute = S.verarbeitet.length + S.warteschlange.length;
+  return `<div>${gesamtHeute} ${gesamtHeute===1?'Aufnahme':'Aufnahmen'} heute</div><div class="trenner stark"></div>
     ${S.verarbeitet.slice().reverse().map(a=>zeile(a,false)).join('<div class="trenner" style="margin:6px 0"></div>')}
     ${S.warteschlange.length && S.verarbeitet.length ? '<div class="trenner" style="margin:6px 0"></div>':''}
     ${S.warteschlange.map(a=>zeile(a,true)).join('<div class="trenner" style="margin:6px 0"></div>')}`;
@@ -604,12 +605,11 @@ V.listen = () => {
       <span>#${esc(id)}${l.neu?' <span class="chip">neu</span>':''}</span>
       <span class="anz">${l.anz}${l.seit?' · seit '+l.seit:''}</span></div>`;
   const v = gruppe('verblasst');
-  return `<div class="ueber">LISTEN</div><div class="trenner stark"></div>
-    <div class="ueber">FEST</div>${gruppe('fest').map(rz).join('')}
+  return `<div class="ueber">fest</div>${gruppe('fest').map(rz).join('')}
     <div class="trenner"></div>
-    <div class="ueber">GEWACHSEN</div>${gruppe('gewachsen').map(rz).join('')}
+    <div class="ueber">gewachsen</div>${gruppe('gewachsen').map(rz).join('')}
     <div class="trenner"></div>
-    <div class="ueber">VERBLASST</div>
+    <div class="ueber">verblasst</div>
     ${v.map(([id,l])=>`<div class="liste-zeile"><span>#${esc(id)}</span><span class="anz">${l.anz} · seit ${l.seit}</span></div>
       <div class="block" style="margin-top:7px"><div class="leise">Seit ${l.still} Tagen nichts mehr dazugekommen.
       Archivieren? Der Inhalt bleibt im Vault.</div></div>`).join('')}`;
@@ -617,27 +617,27 @@ V.listen = () => {
 
 V.detail = () => {
   const l = S.listen['überdachung'];
-  return `<div class="ueber">LISTE</div>
-    <div style="font-family:var(--serif);font-size:26px;font-weight:600">#überdachung</div>
+  return `<div style="font-family:var(--serif);font-size:26px;font-weight:600">#überdachung</div>
     <div class="leise">${l.anz} Einträge · angelegt ${l.seit}</div>
     <div class="trenner stark"></div>
     ${EINTRAEGE['überdachung'].map(e=>`<div class="zeile"><span class="uhr">${e.datum}</span>
       <span class="txt">${esc(e.txt)}</span></div>`).join('')}
     <div class="trenner"></div>
-    <div class="ueber">AUFGABEN</div>
+    <div class="ueber">Aufgaben</div>
     ${EINTRAEGE.aufgaben.map(a=>`<div class="zeile">${IKON.kasten(a.fertig)}
       <span class="txt"${a.fertig?' style="text-decoration:line-through"':''}>${esc(a.txt)}</span></div>`).join('')}
     <div class="trenner"></div>
     <div class="block">
-      <div class="ueber" style="margin-bottom:5px">SORTIERT HIERHER BEI</div>
+      <div class="ueber" style="margin-bottom:5px">Sortiert hierher bei</div>
       <div>${l.trigger.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>
     </div>`;
 };
 
 V.notiz = () => {
   const a = S.notizIdx!=null ? S.verarbeitet.find(x=>x.nr===S.notizIdx) : S.verarbeitet[S.verarbeitet.length-1];
-  if(!a) return `<div class="ueber">NOTIZ</div><div class="trenner stark"></div>
-    <div class="leise">Noch keine Aufnahme da.</div>`;
+  if(!a) return `<div class="serifentext" style="font-size:19px">Noch keine Aufnahme da.</div>
+    <div class="trenner stark"></div>
+    <div class="leise">Sobald eine verarbeitet ist, steht sie hier — mit Rohfassung und Zuordnung.</div>`;
   const txt = S.notizRoh ? a.roh : a.rein;
   const w = (b)=>`<span class="chip ${(S.notizRoh?b==='roh':b==='rein')?'invers':''}" data-roh="${b==='roh'?1:0}"
       style="cursor:pointer;padding:1px 7px">${b==='roh'?'Roh':'Bereinigt'}</span>`;
@@ -648,12 +648,12 @@ V.notiz = () => {
     <div class="serifentext">${esc(txt)}</div>
     <div class="trenner"></div>
     <div class="block">
-      <div class="ueber" style="margin-bottom:6px">ERKANNT</div>
+      <div class="ueber" style="margin-bottom:6px">Erkannt</div>
       <div style="margin-bottom:6px">${a.schlagwoerter.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</div>
       <div class="liste-zeile" style="padding:2px 0"><span>${a.art==='tagebuch'?'Tagebuch, heutiger Eintrag':'#'+esc(a.ziel)}${a.art==='neu'?' · neu angelegt':''}</span>
         <span class="anz">Score ${a.art==='neu'?komma(a.score,2):komma(a.score,2)}</span></div>
       <div class="leise" style="margin-bottom:6px">${esc(a.begruendung)}</div>
-      ${a.aufgaben.length?`<div class="ueber" style="margin:8px 0 4px">AUFGABEN</div>
+      ${a.aufgaben.length?`<div class="ueber" style="margin:8px 0 4px">Aufgaben</div>
         ${a.aufgaben.map(t=>`<div class="zeile" style="padding:1px 0">${IKON.kasten(false)}<span class="txt">${esc(t)}</span></div>`).join('')}`:''}
       <div class="trenner" style="margin:9px 0"></div>
       <div class="liste-zeile leise" style="padding:1px 0"><span>Transkription</span><span class="anz">conf ${komma(a.konfidenz,2)}</span></div>
@@ -663,8 +663,7 @@ V.notiz = () => {
 
 V.tagebuch = () => {
   const w = S.tagebuch.reduce((a,p)=>a+woerter(p.txt),0);
-  return `<div class="ueber">TAGEBUCH</div>
-    <div style="font-family:var(--serif);font-size:22px;font-weight:600">${WOTAG[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MONAT[HEUTE.getMonth()]}</div>
+  return `<div style="font-family:var(--serif);font-size:22px;font-weight:600">${WOTAG[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MONAT[HEUTE.getMonth()]}</div>
     <div class="trenner stark"></div>
     ${S.tagebuch.map(p=>`<div style="margin-bottom:11px"><div class="mono leise" style="margin-bottom:2px">${p.uhr}</div>
       <div class="serifentext">${esc(p.txt)}</div></div>`).join('')}
@@ -676,7 +675,7 @@ V.tagebuch = () => {
 
 V.kalender = () => {
   const woche = wocheAbMontag(), idx = (HEUTE.getDay()+6)%7;
-  return `<div class="ueber">KALENDER · KW ${kalenderwoche(HEUTE)}</div><div class="trenner stark"></div>
+  return `<div>KW ${kalenderwoche(HEUTE)}</div><div class="trenner stark"></div>
     ${woche.map((d,i)=>{
       const t = KALENDER[i]||[];
       return `<div class="${i===idx?'invers':''}" style="padding:6px 8px;margin:0 -8px">
@@ -693,8 +692,7 @@ V.warteschlange = () => {
   const gesamt = S.warteschlange.reduce((a,x)=>a+bytesFuer(x.dauer),0);
   const frei = 29800 - S.sdBelegtMb;                   // 32-GB-Karte, FAT32
   const stundenReichweite = Math.round(frei / (32*3600/1000) * 10)/10;
-  return `<div class="ueber">WARTESCHLANGE</div><div class="trenner stark"></div>
-    ${S.wlan
+  return `${S.wlan
       ? '<div class="leise">Verbunden. Nichts wartet.</div>'
       : `<div class="block stark"><div>Offline seit ${S.offlineSeit?minutenSeit(S.offlineSeit):'0 min'}</div>
          <div class="leise">Nächster Versuch in ${S.naechsterVersuch||T.NAECHSTER_VERSUCH} s</div></div>`}
@@ -704,7 +702,7 @@ V.warteschlange = () => {
         <span class="leise">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}
       <div class="leise" style="margin-top:7px">${S.warteschlange.length} Aufnahmen · ${Math.round(gesamt/1000)} kB auf der SD-Karte</div>`:''}
     <div class="trenner"></div>
-    <div class="ueber">SD-KARTE</div>
+    <div class="ueber">SD-Karte</div>
     <div class="liste-zeile"><span>belegt</span><span class="anz">${(S.sdBelegtMb/1000).toFixed(1).replace('.',',')} GB von 29,8 GB</span></div>
     <div class="liste-zeile"><span>Restreichweite</span><span class="anz">${komma(stundenReichweite)} h Aufnahme</span></div>`;
 };
