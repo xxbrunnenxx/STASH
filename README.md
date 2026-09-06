@@ -9,6 +9,10 @@ Kalender und Erinnerungen.
 
 Alles läuft lokal. Kein Audio verlässt das Haus.
 
+Gebaut als Alltagshilfe, nicht als Produktivitätswerkzeug: Es muss an schlechten Tagen genauso
+funktionieren wie an guten. Was daraus folgt, steht unter
+[Wofür das gebaut ist](#wofür-das-gebaut-ist).
+
 *Ein Stash ist der Vorrat, den man sich weglegt.*
 
 **Status:** Spezifikation. Es gibt noch keinen lauffähigen Code — dieses Dokument beschreibt, was
@@ -19,6 +23,7 @@ gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
 
 ## Inhalt
 
+- [Wofür das gebaut ist](#wofür-das-gebaut-ist)
 - [Systemüberblick](#systemüberblick)
 - [Stückliste](#stückliste)
 - [Showcase erzeugen](#showcase-erzeugen)
@@ -35,6 +40,30 @@ gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
 - [Lizenz](#lizenz)
 
 ---
+
+## Wofür das gebaut ist
+
+STASH ist kein Produktivitätswerkzeug. Es ist eine Alltagshilfe, und die Regeln weiter unten sind
+deshalb keine Geschmacksfragen — sie folgen alle aus einer Anforderung: **Es muss an schlechten
+Tagen genauso funktionieren wie an guten.** Konkret:
+
+- **Zwischen Gedanke und Ablage darf nichts liegen.** Entsperren, App suchen, Ordner wählen,
+  tippen — jeder dieser Schritte ist eine Stelle, an der die Notiz verloren geht. Deshalb ein
+  eigenes Gerät, das nichts anderes kann, und ein Knopf statt einer Oberfläche.
+- **Einsortieren ist Maschinenarbeit.** „In welche Liste gehört das?" ist genau die Frage, an der
+  eine Notiz liegen bleibt. Sie wird nicht gestellt.
+- **Man muss nicht druckreif sprechen.** Abschweifen, neu ansetzen, Details nachschieben — das
+  fängt die bereinigte Fassung auf. Die rohe bleibt daneben stehen, damit nichts wegfällt.
+- **Das Gerät fordert nichts.** Keine Benachrichtigung, kein rotes Fälligkeitszeichen, keine
+  Serie, die reißen kann. Ein Werkzeug, an dem man scheitern kann, wird irgendwann gemieden — und
+  fehlt genau dann, wenn es gebraucht wird. Dieses hier wartet.
+- **Liegengebliebenes geht von selbst.** Eingeschlafene Projekte dürfen sich nicht zu einer Wand
+  aus offenen Posten stapeln. Listen verblassen und bieten ihre Archivierung an.
+- **Protokolliert wird, was war — nicht, wie es war.** Gemacht, gewesen, aufgefallen. Ein
+  sachlicher Nachweis des Tages ist nützlich, eine Benotung des Tages ist es nicht.
+- **Es bleibt im Haus.** Frei reden kann man nur in etwas, das nichts weitergibt.
+
+Diese Punkte sind der Grund für das Gerät. Wer einen davon wegverhandelt, baut ein anderes.
 
 ## Systemüberblick
 
@@ -187,7 +216,8 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
    - *fest*: `#einkauf`, `#tagebuch`, `#ideen`, `#termine` — die verschwinden nie
    - *gewachsen*: `#überdachung`, `#pv-anlage`, `#gehäuse` (mit „neu"-Markierung), `#obsidian`,
      jeweils mit Anzahl und Anlagedatum
-   - *verblasst*: eine Liste ohne Einträge seit 63 Tagen, mit Vorschlag zum Archivieren
+   - *verblasst*: eine Liste ohne Einträge seit 63 Tagen, mit Vorschlag zum Archivieren —
+     Eingeschlafenes soll von selbst gehen, statt sich als offener Posten anzusammeln
 4. **Listen-Detail** (`#überdachung`) — Einträge mit Datum, Aufgaben mit Kästchen. **Ganz unten die
    Trigger-Wörter, die in diese Liste einsortieren** — das ist die Transparenz-Anforderung, die darf
    nicht fehlen.
@@ -203,7 +233,9 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 
 ## Die Pipeline
 
-Der Weg einer Aufnahme, und im Showcase das Herzstück.
+Der Weg einer Aufnahme, und im Showcase das Herzstück. Entscheidend ist, was *nicht* passiert:
+Es wird nie gefragt, wohin die Notiz gehört. Einsortiert wird ohne Rückfrage, und die Ansichten 4
+und 5 machen hinterher nachvollziehbar, warum es so ausgefallen ist.
 
 ```
 Mikrofon → SD-Puffer → Upload → Transkription → Aufräumen → Schlagwörter
@@ -272,15 +304,19 @@ Selbstbau, eine PV-Anlage mit Datenauswertung, 3D-Druck fürs Gehäuse, Obsidian
 Termine.
 
 Die rohen Transkripte müssen wirklich roh klingen — Ähms, Selbstkorrekturen, halbe Sätze,
-Nachschieben von Details. Der Kontrast zur bereinigten Fassung ist der Punkt, an dem der Showcase
-überzeugt oder nicht.
+Nachschieben von Details. Man soll nicht druckreif sprechen müssen, um verstanden zu werden: Genau
+das nimmt die bereinigte Fassung ab, und das Rohe bleibt trotzdem stehen, damit nichts wegfällt.
+Der Kontrast zwischen beiden ist der Punkt, an dem der Showcase überzeugt oder nicht.
 
 Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war, was aufgefallen ist.
 
 ## Nicht machen
 
 - Keine Stimmungs- oder Befindlichkeitserfassung, keine Punktzahlen fürs Wohlbefinden,
-  keine Selbstoptimierungs-Anzeigen. Ist nicht Teil des Produkts.
+  keine Selbstoptimierungs-Anzeigen. Die eigene Verfassung täglich zu benoten hilft nicht, es hält
+  nur fest. Das Tagebuch protokolliert, was war — bewertet wird nichts.
+- Nichts, was mahnt: keine Benachrichtigung, kein rotes Fälligkeitszeichen, keine Serie, keine
+  Erledigungsquote, kein Rückstands-Zähler. Das Gerät wartet, es fordert nicht.
 - Keine Farbe, kein Akzentton, kein flaches Grau auf dem Panel.
 - Keine Einblend-Animationen beim Scrollen, keine Hover-Effekte auf allem. Bewegung nur da, wo sie
   etwas erklärt: Aufnahme, Refresh, Pipeline.
@@ -300,6 +336,7 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 - [ ] „Gerät aus" lässt den Inhalt stehen
 - [ ] eine Suche nach Farbwerten im File findet nur Grauwerte
 - [ ] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
+- [ ] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
 
 **Hinweis an den Coding-Agent:** Wenn du fertig bist, öffne das File selbst und klick es durch.
 Dann in zwei, drei Sätzen sagen, was konkret drinsteckt — nicht „fertig" schreiben, sondern was
