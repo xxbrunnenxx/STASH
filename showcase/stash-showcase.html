@@ -520,6 +520,26 @@ const TAGESINHALT={
 /* Offene Fragen von Tag 1, die Tag 2 beantwortet hat. Der Nachtlauf sieht
    beide Tage und kann das zusammenbringen — das ist der Nutzen der Nacht,
    der über bloßes Zusammenlegen hinausgeht. */
+const EINGANG_MO=[
+ ['07:12',18.2,'überdachung','Die Fläche fürs Gym hinterm Haus ist gut sechs Meter, das reicht für vier Felder'],
+ ['09:48',12.6,'überdachung','Stahlrahmen statt Holz — bei der Spannweite trägt Holz nur mit Stützen mittendrin'],
+ ['11:30',9.1,'heide-park','Krake vierzig Minuten Wartezeit, hat sich trotzdem gelohnt'],
+ ['13:05',7.4,'heide-park','Das Essen im Park ist unverschämt teuer'],
+ ['15:22',16.8,'überdachung','Lichtplatten statt Vollblech, sonst wird es zu dunkel zum Trainieren'],
+ ['17:40',21.3,'ki','Der Nachmittag ging drauf, weil Anweisungen ignoriert wurden'],
+ ['19:15',11.9,'ki','Mehrfach etwas behauptet, das niemand geprüft hatte'],
+];
+const TAGEBUCH_MO=[
+ ['07:05','Früh los Richtung Soltau, Stau ab der Autobahn. Der Tag war warm und trocken.'],
+ ['14:20','Der Park war voll, aber die Wartezeiten gingen. Zwischendurch am Zaun gestanden und über das Gym-Dach nachgedacht.'],
+ ['21:40','Abends noch am Rechner gesessen und mich geärgert. Vier Stunden für etwas, das eine halbe gedauert hätte.'],
+];
+const TAGEBUCH_DI=[
+ ['08:30','Vormittags das Grundstück abgesteckt und nachgemessen. Schmaler als gedacht.'],
+ ['15:10','Im Baumarkt nach Lichtplatten gefragt. Getönt gibt es nur auf Bestellung.'],
+ ['20:55','Abends die Maße durchgerechnet und gemerkt, dass ein Feld wegfällt.'],
+];
+
 const KLAERUNGEN=[
  ['Breite der Fläche','5,80 auf 3,40 — damit fällt ein Feld weg'],
  ['Gummimatten unter die Bank oder daneben','unter die ganze Fläche'],
@@ -567,7 +587,7 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',phase:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',phase:null,tagOffset:0,eingangN:null,eingangTag:null,tagebuchN:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -797,16 +817,18 @@ V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
- if(!alle.length)return `<div class="d2">Noch nichts aufgenommen.</div><div class="regel stark"></div>
-   <div class="p">Knopf drücken, drauflosreden, fertig.</div>`;
- return `<div class="d2">Eingang</div><div class="m">${alle.length} Aufnahmen heute</div>
+ const gesamt=S.eingangN!=null?S.eingangN:alle.length;
+ if(!alle.length)return `<div class="d2">${gesamt?gesamt+' Aufnahmen warten noch':'Noch nichts aufgenommen.'}</div>
+   <div class="regel stark"></div><div class="p">${gesamt?'Sie liegen auf der Karte, bis der Pi wieder erreichbar ist.':'Knopf drücken, drauflosreden, fertig.'}</div>`;
+ return `<div class="d2">Eingang</div><div class="m">${gesamt} Aufnahmen${S.eingangTag?' · '+S.eingangTag:' heute'}</div>
  <div class="regel stark"></div>
- ${alle.map(({a,w})=>`<div class="klick" data-notiz="${a.nr}" style="padding:6px 0">
+ ${alle.slice(0,7).map(({a,w})=>`<div class="klick" data-notiz="${a.nr}" style="padding:6px 0">
    <div class="z" style="padding:0"><span class="uhr">${a.uhr}</span><span class="t u">${esc(a.rein.split('. ')[0])}.</span></div>
    <div class="z" style="padding:3px 0 0"><span class="uhr m">${kf(a.dauer)} s</span>
      <span class="t">${a.schlag.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</span>
      <span class="re">${w?'wartet':'abgelegt'}</span></div>
- </div><div class="regel eng"></div>`).join('')}`;
+ </div><div class="regel eng"></div>`).join('')}
+ ${gesamt>7?`<div class="m">… und ${gesamt-7} weitere im Vault</div>`:''}`;
 };
 
 V.listen=()=>{
@@ -874,13 +896,14 @@ V.notiz=()=>{
 };
 
 V.tagebuch=()=>{const w=S.tagebuch.reduce((a,p)=>a+wz(p.t),0);
- return `<div class="d1" style="font-size:22px">${WT[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ return `<div class="d1" style="font-size:22px">${datumZeile(S.tagOffset||0)}</div>
  <div class="regel stark"></div>
  ${S.tagebuch.map(p=>`<div style="display:flex;gap:11px;margin-bottom:11px">
    <div class="mo" style="flex:none;width:38px;padding-top:3px">${p.uhr}</div>
    <div class="p" style="flex:1">${esc(p.t)}</div></div>`).join('')}
+ ${S.tagebuchN&&S.tagebuchN>S.tagebuch.length?`<div class="m">… und ${S.tagebuchN-S.tagebuch.length} weitere Absätze</div>`:''}
  <div class="regel"></div>
- <div class="z"><span class="t m">${w} Wörter · ${S.tagebuch.length} Absätze</span>
+ <div class="z"><span class="t m">${w} Wörter · ${S.tagebuchN||S.tagebuch.length} Absätze</span>
    <span class="re">${S.zusammen?'zusammengeführt '+S.zusammen:'—'}</span></div>
  <div class="z" style="margin-top:8px"><span class="t m">◀ Vortag</span><span class="re">Folgetag ▶</span></div>`;
 };
@@ -970,9 +993,9 @@ function messwerte(){
    .map(([k,v],i)=>`<div class="mw${i===5&&f?' w':''}"><span>${k}</span><span>${v}</span></div>`).join('');
 }
 function navi(){$('#navi').innerHTML=ANSICHTEN.map(a=>{let z='';
-  if(a.id==='eingang')z=S.verarbeitet.length||'';
+  if(a.id==='eingang')z=(S.eingangN!=null?S.eingangN:S.verarbeitet.length)||'';
   if(a.id==='warteschlange')z=S.warteschlange.length||'';
-  if(a.id==='tagebuch')z=S.tagebuch.length;
+  if(a.id==='tagebuch')z=S.tagebuchN||S.tagebuch.length;
   return `<button data-ansicht="${a.id}" class="${S.ansicht===a.id?'an':''}"><span>${esc(a.t)}</span><span class="z">${z}</span></button>`;}).join('');}
 
 /* ── Pipeline ───────────────────────────────────────────────────────────── */
@@ -1163,6 +1186,8 @@ function phase(n){
       nr:-100-i,kurz:['Überdachung','Heide Park','KI-Ärger','Tagebuch'][i%4],
       uhr:zw(7+Math.floor(i/14))+':'+zw((i*7)%60),dauer:14,schlag:[],aufg:[],rein:'',roh:''}));
     S.sdMb=412+Math.round(200*bytes(14)/1e6);
+    S.verarbeitet=[];S.eingangN=200;S.eingangTag='auf der Karte';
+    S.tagebuch=[];S.tagebuchN=0;
     S.ansicht='warteschlange';
     log('net','WLAN getrennt · unterwegs seit 7 Stunden');
   }
@@ -1171,6 +1196,11 @@ function phase(n){
     const a=tagUnterwegs();
     S.listen=a.L;S.abend=a;S.nacht=null;
     S.simLauf={tb:a.tb,rest:a.rest,nachher:Object.keys(a.L).length};
+    S.sdMb=412;
+    S.verarbeitet=EINGANG_MO.map(([u,d,z,t],i)=>({nr:200+i,uhr:u,dauer:d,konf:0.93,art:'liste',ziel:z,
+      score:0.8,grund:'vorläufig abgelegt, der Nachtlauf steht noch aus',schlag:[z],rein:t,roh:t,aufg:[],loesch:'07.10.'}));
+    S.eingangN=200;S.eingangTag='von unterwegs';S.tagOffset=0;
+    S.tagebuch=TAGEBUCH_MO.map(([u,t])=>({uhr:u,t}));S.tagebuchN=112;
     S.ansicht='heute';
     log('net','zu Hause · Warteschlange 200 Aufnahmen · Aufholen '+a.minuten+' min');
     log('route','vorläufig einsortiert · '+a.neu.length+' Listen neu');
@@ -1187,7 +1217,13 @@ function phase(n){
   }
   if(n===4){
     if(!S.nacht){phase(3);S.phase=4;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===4));}
-    S.tag2=tagZwei();S.ansicht='heute';
+    S.tag2=tagZwei();
+    S.verarbeitet=TAG2.filter(x=>x[1]==='fest').slice(0,7).map(([th,,t],i)=>({nr:300+i,
+      uhr:zw(8+i*2)+':'+zw((i*17)%60),dauer:9+i,konf:0.95,art:'liste',ziel:th.toLowerCase(),score:0.9,
+      grund:'vorläufig abgelegt',schlag:[th.toLowerCase()],rein:t,roh:t,aufg:[],loesch:'08.10.'}));
+    S.eingangN=100;S.eingangTag='heute, zu Hause';S.tagOffset=1;
+    S.tagebuch=TAGEBUCH_DI.map(([u,t])=>({uhr:u,t}));S.tagebuchN=58;
+    S.ansicht='heute';
     log('net','Tag 2 · 100 Aufnahmen · zu Hause verarbeitet');
   }
   if(n===5){
@@ -1195,11 +1231,11 @@ function phase(n){
     const vor=Object.keys(S.listen).length;
     const z=nachtlauf(S.listen);S.nacht=(S.nacht||[]).concat(z);
     log('nacht','Tag 2 verdichtet · '+z.length+' Listen zusammengelegt · 3 offene Fragen geklärt');
-    S.ansicht='heute';
+    S.eingangTag='gestern, zu Hause';S.ansicht='heute';
   }
   if(n===3){
     if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
-    S.morgen=true;S.ansicht='heute';
+    S.morgen=true;S.eingangTag='gestern, von unterwegs';S.ansicht='heute';
     $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
   }
   stand();partial();
