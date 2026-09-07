@@ -262,6 +262,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <button data-phase="1">heimgekommen</button>
       <button data-phase="2">Nacht</button>
       <button data-phase="3">Morgen</button>
+      <span class="titel" style="border-left:1px solid var(--edge)">Tag 2</span>
+      <button data-phase="4">abends</button>
     </div>
     <div id="unterbau">
       <button class="knopf" id="b-voll">Vollrefresh</button>
@@ -436,6 +438,22 @@ function tagUnterwegs(){
           top:Object.entries(ziele).sort((a,b)=>b[1]-a[1]).slice(0,3)};
 }
 
+/* Tag 2 durchrechnen: 100 Aufnahmen, gut die Hälfte Tagebuch. */
+function tagZwei(){
+  const L={};Object.entries(S.listen).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,neu:v.neu,trig:new Set(v.trig)});
+  const tb=58, rest=42;
+  L['tagebuch'].anz+=tb;
+  const themen={};
+  for(let i=0;i<rest;i++){
+    const [thema,art,text]=TAG2[i%TAG2.length];
+    (themen[thema]=themen[thema]||{fest:[],offen:[],tun:[],n:0}).n++;
+    const topf=themen[thema][art];
+    if(!topf.includes(text))topf.push(text);
+  }
+  return {tb,rest,themen,sekunden:(tb+rest)*14,
+          minuten:Math.round(((tb+rest)*14*T.RTF+(tb+rest)*14*T.BREITE*T.RATE/1000/T.WLAN_KBS)/60)};
+}
+
 function simuliere(anzahl,tbAnteil,schwelle,lernend){
   const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
   const vorher=Object.keys(L).length;
@@ -498,6 +516,27 @@ const TAGESINHALT={
    aufgaben:[]},
 };
 
+/* Tag 2, zu Hause. Jede Zeile ist eine einzelne Aufnahme mit ihrem Inhalt und
+   ihrer Art. Die Seiten setzen sich daraus selbst zusammen — nichts davon ist
+   vorformulierter Fließtext. */
+const TAG2=[
+ ['Überdachung','fest','Die Fläche ist 5,80 auf 3,40 — schmaler als gedacht, damit fällt ein Feld weg'],
+ ['Überdachung','fest','Der Boden fällt nach hinten um gut zwölf Zentimeter, das muss über die Fundamenthöhen raus'],
+ ['Überdachung','fest','Die Gummimatten kommen unter die ganze Fläche, nicht nur unter die Bank'],
+ ['Überdachung','offen','Ob der Statiker die Windlast ohne Zeichnung überhaupt beurteilen kann'],
+ ['Überdachung','offen','Ob die Lichtplatten bei acht Grad Neigung genug Ablauf haben'],
+ ['Überdachung','tun','Zeichnung für den Statiker machen'],
+ ['Überdachung','tun','Gummimatten 20 mm, 20 m² bestellen'],
+ ['Überdachung','tun','Sechs Pfostenschuhe zum Aufdübeln besorgen'],
+ ['Material','fest','Lichtplatten gibt es im Baumarkt nur klar in 16 mm, getönt muss bestellt werden'],
+ ['Material','fest','Pfostenschuhe verzinkt kosten im Baumarkt das Doppelte vom Onlinepreis'],
+ ['Material','tun','Lichtplatten online vergleichen'],
+ ['PV-Anlage','fest','Der Wechselrichter brummt nicht mehr, seit die Halterung nachgezogen ist'],
+ ['Wetter','fest','Für Donnerstag ist Regen angesagt'],
+ ['Wetter','tun','Brennholz vorher abdecken'],
+ ['Einkauf','tun','Kaffee, Brot, Spülmaschinentabs'],
+];
+
 /* Der Nachtlauf. Tagsüber entscheidet die Regel je Notiz und sieht nur diese
    eine. Nachts liegen alle Listen nebeneinander — ein einziges gemeinsames
    Trigger-Wort genügt dann, um eine gestern entstandene Liste zurückzuführen. */
@@ -518,7 +557,7 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',phase:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',phase:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -534,6 +573,9 @@ const WT=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samst
 const WK=['So','Mo','Di','Mi','Do','Fr','Sa'];
 const MO=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const HEUTE=new Date();
+/* Der Showcase erzählt drei Tage: Tag 1 unterwegs, die Nacht darauf, Tag 2. */
+const tagPlus=k=>{const d=new Date(HEUTE);d.setDate(HEUTE.getDate()+k);return d;};
+const datumZeile=k=>{const d=tagPlus(k);return WT[d.getDay()]+', '+d.getDate()+'. '+MO[d.getMonth()];};
 const uhr=d=>zw(d.getHours())+':'+zw(d.getMinutes());
 const stmp=d=>zw(d.getHours())+':'+zw(d.getMinutes())+':'+zw(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0');
 function kw(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
@@ -599,7 +641,7 @@ V.morgenAusDaten=()=>{
     (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(term.length<3)term.push({tag:WK[t.getDay()],...e});});}
   const P='font-size:14px;line-height:1.40;';
   return `
- <div class="d1" style="font-size:27px">${WT[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="d1" style="font-size:27px">${datumZeile(1)}</div>
  <div class="regel stark" style="margin:8px 0"></div>
  ${themen.slice(0,3).map((t,k)=>{const i=TAGESINHALT[t.thema];if(!i)return '';
    return `${k?'<div class="regel eng"></div>':''}
@@ -681,7 +723,28 @@ V.abend=()=>{const a=S.abend;
    überarbeitet. Morgen früh steht hier, was sich verschoben hat.</div></div>`;
 };
 
-V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten():(S.morgen?V.morgen():V.uebersicht());
+/* Abends nach Tag 2: was heute gesagt wurde, in der Reihenfolge des Bestands.
+   Noch unsortiert, noch nicht verdichtet — das passiert nachts. */
+V.abendZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.38;';
+ const th=Object.entries(d.themen).sort((a,b)=>b[1].n-a[1].n);
+ return `
+ <div class="d1" style="font-size:25px">${datumZeile(1)}</div>
+ <div class="m" style="margin-top:3px">Heute zu Hause · ${d.tb+d.rest} Aufnahmen · zuletzt vor 4 Minuten</div>
+ <div class="regel stark" style="margin:8px 0"></div>
+ ${th.map(([name,t],k)=>`${k?'<div class="regel eng"></div>':''}
+   <div class="z" style="padding:0 0 2px"><span class="t d2" style="font-size:15px">${esc(name)}</span>
+     <span class="re">${t.n}</span></div>
+   ${t.fest.map(x=>`<div class="p" style="${P}">${esc(x)}</div>`).join('')}
+   ${t.offen.map(x=>`<div class="p" style="${P}"><i>Offen:</i> ${esc(x)}</div>`).join('')}
+   ${t.tun.map(x=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:13px">${esc(x)}</span></div>`).join('')}
+ `).join('')}
+ <div class="regel"></div>
+ <div class="m">${d.tb} Aufnahmen sind ins Tagebuch gegangen. Aufgeräumt und verdichtet wird heute Nacht —
+   morgen früh steht hier eine Seite statt einer Liste.</div>`;
+};
+
+V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
+  :S.phase===4?V.abendZwei():(S.morgen?V.morgen():V.uebersicht());
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
@@ -1073,6 +1136,11 @@ function phase(n){
     S.ansicht='listen';
     $('#s-out').innerHTML+=`<div style="margin-top:5px"><b>Nacht</b>: ${vor} → ${Object.keys(S.listen).length} Listen</div>`;
   }
+  if(n===4){
+    if(!S.nacht){phase(3);S.phase=4;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===4));}
+    S.tag2=tagZwei();S.ansicht='heute';
+    log('net','Tag 2 · 100 Aufnahmen · zu Hause verarbeitet');
+  }
   if(n===3){
     if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
     S.morgen=true;S.ansicht='heute';
@@ -1128,7 +1196,7 @@ setInterval(()=>{
 },1000);
 
 stufenMalen();stufe(-1);malen();stand();skalieren();
-phase(3);   // aufgemacht wird auf der Morgenseite: Tag, Nacht und Aufräumen sind durch
+phase(4);   // aufgemacht wird auf dem Abend von Tag 2
 log('sys','STASH Showcase · Simulation, keine echte Hardware');
 log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
 log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
