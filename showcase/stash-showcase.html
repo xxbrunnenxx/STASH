@@ -264,6 +264,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <button data-phase="3">Morgen</button>
       <span class="titel" style="border-left:1px solid var(--edge)">Tag 2</span>
       <button data-phase="4">abends</button>
+      <button data-phase="5">Nacht &amp; Morgen</button>
     </div>
     <div id="unterbau">
       <button class="knopf" id="b-voll">Vollrefresh</button>
@@ -516,6 +517,15 @@ const TAGESINHALT={
    aufgaben:[]},
 };
 
+/* Offene Fragen von Tag 1, die Tag 2 beantwortet hat. Der Nachtlauf sieht
+   beide Tage und kann das zusammenbringen — das ist der Nutzen der Nacht,
+   der über bloßes Zusammenlegen hinausgeht. */
+const KLAERUNGEN=[
+ ['Breite der Fläche','5,80 auf 3,40 — damit fällt ein Feld weg'],
+ ['Gummimatten unter die Bank oder daneben','unter die ganze Fläche'],
+ ['Brummen am Wechselrichter','war die Halterung, ist weg'],
+];
+
 /* Tag 2, zu Hause. Jede Zeile ist eine einzelne Aufnahme mit ihrem Inhalt und
    ihrer Art. Die Seiten setzen sich daraus selbst zusammen — nichts davon ist
    vorformulierter Fließtext. */
@@ -743,8 +753,47 @@ V.abendZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.38;';
    morgen früh steht hier eine Seite statt einer Liste.</div>`;
 };
 
+/* Morgens nach Tag 2: dieselben Notizen, nur verdichtet. Die Aussagen eines
+   Themas werden zu einem Absatz, Offenes darunter, Aufgaben gesammelt. */
+V.morgenZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.36;';
+ const th=Object.entries(d.themen).sort((a,b)=>b[1].n-a[1].n);
+ const haupt=th.filter(([,t])=>t.fest.length>1), rest=th.filter(([,t])=>t.fest.length===1);
+ const tun=[];th.forEach(([,t])=>tun.push(...t.tun));
+ const term=[];for(let k=1;k<7&&term.length<3;k++){const t=tagPlus(k+1);
+   (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(term.length<3)term.push({tag:WK[t.getDay()],...e});});}
+ return `
+ <div class="d1" style="font-size:25px">${datumZeile(2)}</div>
+ <div class="regel stark" style="margin:7px 0"></div>
+ ${haupt.map(([name,t],k)=>`${k?'<div class="regel eng"></div>':''}
+   <div class="d2" style="font-size:15px;margin-bottom:2px">${esc(name)}</div>
+   <div class="p" style="${P}">${t.fest.map(esc).join('. ')}.</div>
+   ${t.offen.length?`<div class="p" style="${P}margin-top:3px"><i>Offen:</i> ${t.offen.map(esc).join('. ')}.</div>`:''}`).join('')}
+ <div class="regel eng"></div>
+ ${band('Seit gestern geklärt')}
+ ${KLAERUNGEN.map(([f,a])=>`<div class="z" style="padding:1px 0"><span class="t" style="font-size:13px">${esc(f)}</span>
+   <span class="re" style="font-family:var(--sans);font-size:12.5px;max-width:200px;text-align:right">${esc(a)}</span></div>`).join('')}
+ <div class="regel eng"></div>
+ <div class="p" style="${P}">${rest.map(([name,t])=>'<b style="font-weight:600">'+esc(name)+':</b> '+t.fest.map(esc).join('. ')).join('. ')}.</div>
+ <div class="regel eng"></div>
+ <div class="p" style="${P}"><i>Im Tagebuch:</i> ${d.tb} Absätze — der Tag auf dem Grundstück,
+   der Baumarkt am Nachmittag, abends die Maße durchgerechnet.</div>
+ <div class="regel eng"></div>
+ <div style="display:flex;gap:12px">
+  <div style="flex:1.2"><div class="m kursiv" style="margin-bottom:2px">Zu tun</div>
+   ${tun.map(t=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:12.5px">${esc(t)}</span></div>`).join('')}</div>
+  <div style="flex:.8"><div class="m kursiv" style="margin-bottom:2px">Diese Woche</div>
+   ${term.map(t=>`<div class="z" style="padding:1px 0"><span class="uhr" style="width:18px">${t.tag}</span>
+     <span class="t" style="font-size:12.5px">${t.u} ${esc(t.t)}</span></div>`).join('')}</div>
+ </div>
+ <div class="regel" style="margin:6px 0"></div>
+ <div class="m">${d.tb+d.rest} Aufnahmen von gestern zu ${haupt.length+rest.length} Themen verdichtet,
+   ${S.nacht?S.nacht.length:0} Listen zusammengelegt, drei offene Fragen von Montag beantwortet.</div>
+ <div class="m" style="margin-top:4px">Der Heide-Park-Tag liegt weiter auf mehreren Listen —
+   sag es mir, dann lege ich sie heute Nacht zusammen.</div>`;
+};
+
 V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
-  :S.phase===4?V.abendZwei():(S.morgen?V.morgen():V.uebersicht());
+  :S.phase===4?V.abendZwei():S.phase===5?V.morgenZwei():(S.morgen?V.morgen():V.uebersicht());
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
@@ -1141,6 +1190,13 @@ function phase(n){
     S.tag2=tagZwei();S.ansicht='heute';
     log('net','Tag 2 · 100 Aufnahmen · zu Hause verarbeitet');
   }
+  if(n===5){
+    if(!S.tag2){phase(4);S.phase=5;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===5));}
+    const vor=Object.keys(S.listen).length;
+    const z=nachtlauf(S.listen);S.nacht=(S.nacht||[]).concat(z);
+    log('nacht','Tag 2 verdichtet · '+z.length+' Listen zusammengelegt · 3 offene Fragen geklärt');
+    S.ansicht='heute';
+  }
   if(n===3){
     if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
     S.morgen=true;S.ansicht='heute';
@@ -1196,7 +1252,7 @@ setInterval(()=>{
 },1000);
 
 stufenMalen();stufe(-1);malen();stand();skalieren();
-phase(4);   // aufgemacht wird auf dem Abend von Tag 2
+phase(5);   // aufgemacht wird auf der Morgenseite nach Tag 2
 log('sys','STASH Showcase · Simulation, keine echte Hardware');
 log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
 log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
