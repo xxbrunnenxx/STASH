@@ -588,10 +588,14 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',werk:false,eingerichtet:true,phase:null,tagOffset:0,eingangN:null,eingangTag:null,tagebuchN:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
-  partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
-  listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-  erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
+/* Werkseinstellung. Das Gerät startet leer: keine Aufnahmen, keine
+   Warteschlange, kein Tagebuch, vier leere feste Listen, kein Pi eingerichtet.
+   Der Demo-Stand wird nur über den Knopf „Demo-Stand“ geladen. */
+const S={ansicht:'heute',werk:true,eingerichtet:false,phase:null,tagOffset:0,eingangN:0,eingangTag:null,tagebuchN:0,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:false,an:true,serif:true,laeuft:false,
+  partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
+  listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
+          ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
+  tagebuch:[],erinnerungen:[],zusammen:null,akku:100,sdMb:0,retry:T.RETRY};
 
 const ANSICHTEN=[{id:'heute',t:'Heute'},{id:'eingang',t:'Eingang'},{id:'listen',t:'Listen'},
  {id:'detail',t:'#überdachung'},{id:'notiz',t:'Notiz'},{id:'tagebuch',t:'Tagebuch'},
@@ -1203,7 +1207,10 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,abend:null,morgen:true});
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,abend:null,morgen:true,
+   /* Zähler des Werkszustands zurücknehmen, sonst zeigt der Demo-Stand 0 Aufnahmen. */
+   phase:null,tag2:null,eingangN:null,eingangTag:null,tagebuchN:null,tagOffset:0});
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.remove('an'));
   $('#s-nacht').disabled=true;
   heuteForm(true);
   $('#s-out').innerHTML='';
@@ -1352,9 +1359,10 @@ setInterval(()=>{
 },1000);
 
 stufenMalen();stufe(-1);malen();stand();skalieren();
-/* Zuletzt, damit der Werksreset das letzte Wort im Log hat und nicht die
-   Startmeldungen des Demo-Stands hinterherlaufen. */
-$('#b-werk').click();
+log('sys','Werkseinstellung · keine Daten auf dem Gerät');
+log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
+log('net','pi5-brain.local nicht eingerichtet');
+log('sys','bereit · Seitentaste drücken');
 </script>
 </body>
 </html>
