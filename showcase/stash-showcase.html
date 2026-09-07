@@ -222,6 +222,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <label class="zeileschalter"><input type="checkbox" id="s-lern"> Listen lernen Schlagwörter dazu</label>
       <button class="knopf haupt" id="s-run">Tag durchrechnen</button>
       <button class="knopf" id="s-nacht" disabled>Nacht darüber laufen lassen</button>
+      <button class="knopf" id="s-tag">Tag unterwegs · 200 Aufnahmen</button>
       <div id="s-out"></div>
     </div>
   </div>
@@ -395,6 +396,34 @@ const THEMEN=[
  [1,[['wasserleitung','absperrhahn','tropft']]],
 ];
 function treffer(keys,trig){let t=0;keys.forEach(k=>{if(trig.has(k))t++;});return keys.length?t/keys.length:0;}
+/* Der Tag unterwegs: alles wandert in die Warteschlange und wird erst zu
+   Hause abgearbeitet. Sortiert wird vorläufig mit der billigen Regel. */
+function tagUnterwegs(){
+  const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
+  const vorrat=[];TAG_UNTERWEGS.forEach(([g,thema,m])=>{for(let i=0;i<g;i++)vorrat.push([thema,m[i%m.length]]);});
+  const tb=112, rest=200-tb;                        // gut die Hälfte ist Tagebuch
+  L['tagebuch'].anz+=tb;
+  const ziele={},themaZiel={},neu=[];
+  const sekunden=(tb+rest)*14;                      // alle 200 müssen durch Whisper, auch das Tagebuch
+  for(let i=0;i<rest;i++){
+    const [thema,keys]=vorrat[i%vorrat.length];
+    let beste=null,best=0;
+    for(const [name,l] of Object.entries(L)){const sc=treffer(keys,l.trig);if(sc>best){best=sc;beste=name;}}
+    let ziel;
+    if(best>=0.62){ziel=beste;}
+    else{ziel=keys.slice().sort()[0];
+      if(!L[ziel]){L[ziel]={art:'gewachsen',anz:0,seit:'heute',neu:true,trig:new Set(keys)};neu.push(ziel);}
+      else L[ziel].trig=new Set([...L[ziel].trig,...keys]);}
+    L[ziel].anz++;ziele[ziel]=(ziele[ziel]||0)+1;
+    (themaZiel[thema]=themaZiel[thema]||{})[ziel]=(themaZiel[thema][ziel]||0)+1;
+  }
+  // Zeit zum Aufholen: Upload plus Whisper über den ganzen Stapel
+  const minuten=Math.round((sekunden*T.RTF + sekunden*T.BREITE*T.RATE/1000/T.WLAN_KBS)/60);
+  const einzeln=neu.filter(k=>ziele[k]===1).length;
+  return {L,tb,rest,ziele,themaZiel,neu,einzeln,minuten,
+          top:Object.entries(ziele).sort((a,b)=>b[1]-a[1]).slice(0,3)};
+}
+
 function simuliere(anzahl,tbAnteil,schwelle,lernend){
   const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
   const vorher=Object.keys(L).length;
@@ -421,6 +450,26 @@ function simuliere(anzahl,tbAnteil,schwelle,lernend){
           groesste:Object.entries(ziele).sort((a,b)=>b[1]-a[1])[0]||['—',0]};
 }
 
+/* Ein konkreter Tag, den ganzen Tag unterwegs, alles auf der SD-Karte.
+   Drei Themen tragen ihn, dazu Beiläufiges und viel Tagebuch. */
+const TAG_UNTERWEGS=[
+ [16,'Überdachung Outdoor-Gym',[
+   ['überdachung','outdoor-gym','maße'],['überdachung','regenschutz','hantelbank'],
+   ['pfosten','sechs','meter'],['boden','gummimatten','fallschutz'],
+   ['dach','lichtplatten','helligkeit'],['stahl','holz','vergleich'],
+   ['fundament','punktfundament','frostfrei'],['wind','statik','abspannung']]],
+ [13,'Heide Park',[
+   ['heide-park','krake','wartezeit'],['heide-park','colossus','holzachterbahn'],
+   ['heide-park','essen','preise'],['soltau','anfahrt','stau'],
+   ['heide-park','flug-der-dämonen','looping'],['park','wetter','sonne']]],
+ [11,'Ärger mit KIs',[
+   ['ki','anweisung','ignoriert'],['ki','umweg','statt-antwort'],
+   ['ki','behauptung','ungeprüft'],['stash','showcase','nacharbeit'],
+   ['ki','kontingent','verbraucht']]],
+ [4,'Beiläufig',[['einkaufen','kaffee','brot'],['termin','werkstatt','uhr'],
+   ['brennholz','stapeln','trocknen'],['auto','tanken','quittung']]],
+];
+
 /* Der Nachtlauf. Tagsüber entscheidet die Regel je Notiz und sieht nur diese
    eine. Nachts liegen alle Listen nebeneinander — ein einziges gemeinsames
    Trigger-Wort genügt dann, um eine gestern entstandene Liste zurückzuführen. */
@@ -441,7 +490,7 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -550,7 +599,30 @@ V.uebersicht=()=>{
  <div class="p" style="font-size:13.5px;margin-top:3px">„${esc(S.tagebuch[S.tagebuch.length-1].t.slice(0,96))} …"</div>`;
 };
 
-V.heute=()=>S.morgen?V.morgen():V.uebersicht();
+/* Der Stapel ist durch, aufgeräumt ist noch nichts. Genau das sagt die Seite
+   auch — damit die vorläufige Unordnung nicht wie ein Fehler aussieht. */
+V.abend=()=>{const a=S.abend;
+ return `
+ <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="m" style="margin-top:5px">Warteschlange abgearbeitet · ${a.minuten} min</div>
+ <div class="regel stark"></div>
+ <div class="p" style="margin-bottom:11px">Du warst den ganzen Tag unterwegs.
+   ${a.tb+a.rest} Aufnahmen lagen auf der Karte, ${a.tb} davon sind ins Tagebuch gegangen.</div>
+ ${band('Der Tag in drei Themen')}
+ ${Object.entries(a.themaZiel).slice(0,3).map(([thema,z])=>{
+   const gesamt=Object.values(z).reduce((x,y)=>x+y,0), teile=Object.keys(z).length;
+   return `<div class="z"><span class="t u">${esc(thema)}</span>
+     <span class="re">${gesamt}</span></div>
+     <div class="m" style="margin:-2px 0 6px">${teile===1?'in einer Liste':'auf '+teile+' Listen verteilt'}</div>`;}).join('')}
+ <div class="regel"></div>
+ <div class="p" style="margin-bottom:9px">${a.neu.length} Listen sind heute neu entstanden,
+   ${a.einzeln} davon mit einer einzigen Notiz.</div>
+ <div class="rahmen"><div class="u">Aufgeräumt wird heute Nacht.</div>
+   <div class="m" style="margin-top:3px">Zusammengehöriges wird zusammengelegt, die Namen werden
+   überarbeitet. Morgen früh steht hier, was sich verschoben hat.</div></div>`;
+};
+
+V.heute=()=>S.abend?V.abend():(S.morgen?V.morgen():V.uebersicht());
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
@@ -869,7 +941,7 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,morgen:true});
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,abend:null,morgen:true});
   $('#s-nacht').disabled=true;
   heuteForm(true);
   $('#s-out').innerHTML='';
@@ -899,8 +971,23 @@ $('#s-run').addEventListener('click',()=>{
     Object.entries(r.hist).sort().map(([k,v])=>`<div>&nbsp;&nbsp;${k.replace('.',',')} · ${v}×${+k>=sw?' <b>trifft</b>':''}</div>`).join('')+
     `<div style="margin-top:4px">Bei drei Schlagwörtern gibt es nur 0 · 0,33 · 0,67 · 1,00 — dazwischen ändert die Schwelle nichts.</div>`+
     (r.neu>r.rest*0.4?`<div class="warn" style="margin-top:5px">Mehr als jede dritte Aufnahme legt eine neue Liste an.</div>`:'');
-  S.nacht=null;$('#s-nacht').disabled=false;
+  S.nacht=null;S.abend=null;$('#s-nacht').disabled=false;
   log('sim',an+' Aufnahmen · Schwelle '+(sw).toFixed(2)+(le?' · lernend':'')+' → '+r.nachher+' Listen, '+r.neu+' neu');
+  partial();
+});
+
+$('#s-tag').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  const a=tagUnterwegs();
+  S.listen=a.L;S.abend=a;S.simLauf={tb:a.tb,rest:a.rest,nachher:Object.keys(a.L).length};
+  S.ansicht='heute';$('#s-nacht').disabled=false;
+  $('#s-out').innerHTML=`<div><b>200</b> Aufnahmen aus der Warteschlange</div>`+
+    `<div>Aufholen: <b>${a.minuten} min</b> nach dem Heimkommen</div>`+
+    `<div>Listen ${Object.keys(LISTEN).length} → <b>${Object.keys(a.L).length}</b> · neu ${a.neu.length}</div>`+
+    `<div>davon mit einer Notiz: ${a.einzeln}</div>`+
+    a.top.map(([k,v])=>`<div>&nbsp;&nbsp;#${esc(k)} ${v}</div>`).join('');
+  log('net','Warteschlange · 200 Aufnahmen · Aufholen '+a.minuten+' min');
+  log('route','vorläufig einsortiert · '+a.neu.length+' Listen neu');
   partial();
 });
 
