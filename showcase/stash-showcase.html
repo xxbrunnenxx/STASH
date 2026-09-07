@@ -217,7 +217,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     <div class="werkzeuge">
       <button class="knopf haupt" id="b-rec">▸ Sprachnotiz aufnehmen<i id="b-rec-n">nächste: Gehäuse</i></button>
       <button class="knopf" id="b-wlan">WLAN aus</button>
-      <button class="knopf" id="b-reset">Zurücksetzen</button>
+      <button class="knopf" id="b-reset">Demo-Stand</button>
+      <button class="knopf" id="b-werk">Werkseinstellung</button>
     </div>
     <div class="rubrik">Tagessimulation</div>
     <div class="sim">
@@ -587,7 +588,7 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',phase:null,tagOffset:0,eingangN:null,eingangTag:null,tagebuchN:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',werk:false,eingerichtet:true,phase:null,tagOffset:0,eingangN:null,eingangTag:null,tagebuchN:null,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -713,21 +714,19 @@ V.uebersicht=()=>{
  return `<div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
  <div class="m" style="margin-top:5px">KW ${kw(HEUTE)} · ${HEUTE.getFullYear()}</div>
  <div class="regel stark"></div>
- ${band('Nächste Termine')}
- ${na.map(t=>`<div class="z"><span class="uhr">${t.u}</span><span class="t u trunk">${esc(t.t)}</span><span class="re">${t.tag}</span></div>`).join('')}
- <div class="regel"></div>
+ ${S.eingerichtet?band('Nächste Termine')+na.map(t=>`<div class="z"><span class="uhr">${t.u}</span><span class="t u trunk">${esc(t.t)}</span><span class="re">${t.tag}</span></div>`).join('')+'<div class="regel"></div>':''}
  ${band('Fällig · '+offen.length)}
  ${offen.slice(0,4).map(e=>`<div class="z">${IK.kast(false)}<span class="t u">${esc(e.t)}</span></div>`).join('')}
  <div class="regel"></div>
  ${band('Eingang')}
  <div class="z"><span class="t u"><b style="font-family:var(--serif);font-size:19px">${S.verarbeitet.length}</b>
    <span class="m"> Aufnahmen heute${S.warteschlange.length?' · '+S.warteschlange.length+' wartend':''}</span></span></div>
- ${letzte?`<div class="p" style="font-size:13.5px;margin-top:3px">„${esc(letzte.rein.split('. ')[0])} …"</div>
+ ${letzte&&letzte.rein?`<div class="p" style="font-size:13.5px;margin-top:3px">„${esc(letzte.rein.split('. ')[0])} …"</div>
    <div class="m" style="margin-top:2px">${letzte.uhr} · #${esc(letzte.ziel||'tagebuch')}</div>`:''}
  <div class="regel"></div>
  ${band('Tagebuch')}
  <div class="z"><span class="t m">${S.tagebuch.length} Absätze · ${tw} Wörter</span></div>
- <div class="p" style="font-size:13.5px;margin-top:3px">„${esc(S.tagebuch[S.tagebuch.length-1].t.slice(0,96))} …"</div>`;
+ ${S.tagebuch.length?`<div class="p" style="font-size:13.5px;margin-top:3px">„${esc(S.tagebuch[S.tagebuch.length-1].t.slice(0,96))} …"</div>`:''}`;
 };
 
 /* Der Stapel ist durch, aufgeräumt ist noch nichts. Genau das sagt die Seite
@@ -812,14 +811,40 @@ V.morgenZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.36;';
    sag es mir, dann lege ich sie heute Nacht zusammen.</div>`;
 };
 
-V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
-  :S.phase===4?V.abendZwei():S.phase===5?V.morgenZwei():(S.morgen?V.morgen():V.uebersicht());
+/* Was ein fabrikneues Gerät zeigt: keine Zahlen, weil es keine gibt.
+   Stattdessen wofür es da ist und wie man es bedient. */
+V.erststart=()=>`
+ <div style="height:26px"></div>
+ <div class="d1" style="font-size:36px;letter-spacing:.02em">STASH</div>
+ <div class="p" style="font-size:17px;margin-top:8px">Muss ich nicht im Kopf haben.</div>
+ <div class="regel stark" style="margin:16px 0"></div>
+ <div class="p" style="font-size:15px;margin-bottom:12px">Seitentaste drücken, drauflosreden,
+   loslassen. Mehr ist nicht zu tun — einsortiert wird im Keller.</div>
+ <div class="p" style="font-size:15px;margin-bottom:14px">Der Drehknopf blättert durch die
+   Ansichten und öffnet, was gerade oben steht.</div>
+ <div class="rahmen">
+   <div class="z" style="padding:2px 0"><span class="uhr">◀ ▶</span><span class="t u">blättern</span></div>
+   <div class="z" style="padding:2px 0"><span class="uhr">●</span><span class="t u">öffnen und schließen</span></div>
+   <div class="z" style="padding:2px 0"><span class="uhr">REC</span><span class="t u">aufnehmen, von überall</span></div>
+ </div>
+ <div class="regel"></div>
+ <div class="p" style="font-size:15px;margin-bottom:10px">Vier Listen sind da und bleiben:
+   #einkauf, #tagebuch, #ideen, #termine. Weitere entstehen von selbst, wenn ein Thema wiederkommt.</div>
+ <div class="regel eng"></div>
+ <div class="m">Noch keine Aufnahme. Die Karte ist leer, der Vault auch.</div>
+ <div class="m" style="margin-top:4px">pi5-brain.local ist noch nicht eingerichtet.</div>`;
+
+V.heute=()=>S.werk?V.erststart():S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
+  :S.phase===4?V.abendZwei():S.phase===5?V.morgenZwei()
+  // Die handgesetzte Morgenseite gehört zum Demo-Stand. Ein Gerät ohne Vorgeschichte
+  // zeigt seinen echten Zustand, nicht eine Seite über Dinge, die es nicht kennt.
+  :(S.morgen&&S.verarbeitet.length>=2?V.morgen():V.uebersicht());
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
  const gesamt=S.eingangN!=null?S.eingangN:alle.length;
  if(!alle.length)return `<div class="d2">${gesamt?gesamt+' Aufnahmen warten noch':'Noch nichts aufgenommen.'}</div>
-   <div class="regel stark"></div><div class="p">${gesamt?'Sie liegen auf der Karte, bis der Pi wieder erreichbar ist.':'Knopf drücken, drauflosreden, fertig.'}</div>`;
+   <div class="regel stark"></div><div class="p">${gesamt?'Sie liegen auf der Karte, bis der Pi wieder erreichbar ist.':'Seitentaste drücken, drauflosreden, fertig.'}</div>`;
  return `<div class="d2">Eingang</div><div class="m">${gesamt} Aufnahmen${S.eingangTag?' · '+S.eingangTag:' heute'}</div>
  <div class="regel stark"></div>
  ${alle.slice(0,7).map(({a,w})=>`<div class="klick" data-notiz="${a.nr}" style="padding:6px 0">
@@ -832,6 +857,13 @@ V.eingang=()=>{
 };
 
 V.listen=()=>{
+ if(S.werk)return `<div class="d2">Listen</div><div class="m">vier feste, sonst noch nichts</div>
+  <div class="regel stark"></div>${band('fest')}
+  ${['einkauf','tagebuch','ideen','termine'].map(k=>`<div class="z"><span class="t u">#${k}</span>
+    <span class="re">0</span></div>`).join('')}
+  <div class="regel"></div>
+  <div class="p" style="font-size:14px">Gewachsene Listen entstehen, wenn ein Thema wiederkommt.
+  Bis dahin liegen Notizen im Eingang und sind über die Suche auffindbar.</div>`;
  const g=a=>Object.entries(S.listen).filter(([,l])=>l.art===a);
  const max=Math.max(...Object.values(S.listen).map(l=>l.anz));
  const row=([id,l])=>`<div class="z ${id==='überdachung'?'klick':''}" ${id==='überdachung'?'data-ansicht="detail"':''}>
@@ -859,6 +891,8 @@ V.listen=()=>{
 };
 
 V.detail=()=>{const l=S.listen['überdachung'];
+ if(S.werk||!l)return `<div class="d2">Diese Liste gibt es noch nicht.</div><div class="regel stark"></div>
+  <div class="p">Sie entsteht, sobald mehrfach über dasselbe Thema gesprochen wurde.</div>`;
  return `<div class="d1" style="font-size:26px">#überdachung</div>
  <div class="m" style="margin-top:4px">${l.anz} Einträge · angelegt ${l.seit}</div>
  <div class="regel stark"></div>
@@ -896,6 +930,9 @@ V.notiz=()=>{
 };
 
 V.tagebuch=()=>{const w=S.tagebuch.reduce((a,p)=>a+wz(p.t),0);
+ if(S.werk)return `<div class="d1" style="font-size:22px">${datumZeile(0)}</div>
+  <div class="regel stark"></div><div class="p">Noch nichts eingetragen.</div>
+  <div class="m" style="margin-top:8px">Erzähl abends, was war — daraus wird der Tageseintrag.</div>`;
  return `<div class="d1" style="font-size:22px">${datumZeile(S.tagOffset||0)}</div>
  <div class="regel stark"></div>
  ${S.tagebuch.map(p=>`<div style="display:flex;gap:11px;margin-bottom:11px">
@@ -909,6 +946,9 @@ V.tagebuch=()=>{const w=S.tagebuch.reduce((a,p)=>a+wz(p.t),0);
 };
 
 V.kalender=()=>{const w=woche(),i0=(HEUTE.getDay()+6)%7;
+ if(!S.eingerichtet)return `<div class="d2">Kalender</div><div class="regel stark"></div>
+  <div class="p">Noch nicht mit dem Apple-Kalender verbunden.</div>
+  <div class="m" style="margin-top:8px">Die Verbindung wird auf dem Pi eingerichtet, nicht hier.</div>`;
  return `<div class="d2">Woche</div><div class="m">KW ${kw(HEUTE)} · aus dem Apple-Kalender</div>
  <div class="regel stark"></div>
  ${w.map((d,i)=>{const t=KALENDER[i]||[],vg=i<i0;
@@ -923,9 +963,12 @@ V.warteschlange=()=>{
  const ges=S.warteschlange.reduce((a,x)=>a+bytes(x.dauer),0), frei=29800-S.sdMb;
  const std=Math.round(frei/(32*3600/1000)*10)/10, pct=Math.round(S.sdMb/29800*100);
  return `<div class="d2">Warteschlange</div>
- <div class="m">${S.wlan?'verbunden mit pi5-brain.local':'offline seit '+minSeit(S.offlineSeit)}</div>
+ <div class="m">${S.wlan?'verbunden mit pi5-brain.local'
+   :S.offlineSeit?'offline seit '+minSeit(S.offlineSeit):'noch nie verbunden'}</div>
  <div class="regel stark"></div>
  ${S.wlan?`<div class="p">Nichts wartet. Aufnahmen laufen direkt durch.</div>`
+  :!S.offlineSeit?`<div class="p">Der Pi ist noch nicht eingerichtet. Aufnahmen bleiben so lange
+     auf der Karte — verloren geht dabei nichts.</div>`
   :`<div class="rahmen stark"><div class="u">Nächster Versuch in ${S.retry} s</div>
     <div class="m" style="margin-top:2px">Aufnahmen bleiben auf der SD-Karte, bis der Pi wieder erreichbar ist.</div></div>`}
  ${S.warteschlange.length?`<div class="regel"></div>${band(S.warteschlange.length+' Aufnahmen · '+Math.round(ges/1000)+' kB')}
@@ -1003,6 +1046,7 @@ let nr=0,tw=null,tz=null;
 function aufnehmen(){
   if(S.laeuft)return; if(!S.an){log('sys','Gerät ist aus');return;}
   S.laeuft=true;
+  S.werk=false;   // mit der ersten Aufnahme ist das Gerät kein Neugerät mehr
   const a={...AUFNAHMEN[S.naechste%AUFNAHMEN.length]};S.naechste++;
   a.nr=++nr;a.uhr=uhr(new Date());
   const l=new Date();l.setDate(l.getDate()+30);a.loesch=zw(l.getDate())+'.'+zw(l.getMonth()+1)+'.';
@@ -1135,6 +1179,24 @@ $('#b-wlan').addEventListener('click',()=>{
   else{S.offlineSeit=Date.now();S.retry=T.RETRY;log('net','WLAN getrennt · Aufnahmen bleiben in der Warteschlange');
     stand();S.ansicht='warteschlange';partial();}
 });
+$('#b-werk').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  Object.assign(S,{werk:true,phase:null,ansicht:'heute',zurueck:null,notizNr:null,roh:false,
+    wlan:false,an:true,partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
+    listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
+            ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
+    tagebuch:[],tagebuchN:0,eingangN:0,eingangTag:null,tagOffset:0,erinnerungen:[],
+    zusammen:null,akku:100,sdMb:0,retry:T.RETRY,simLauf:null,nacht:null,abend:null,tag2:null,
+    morgen:true,eingerichtet:false});
+  nr=0;$('#log').innerHTML='';$('#s-out').innerHTML='';$('#s-nacht').disabled=true;
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.remove('an'));
+  setzeGeist(null);stufe(-1);malen();stand();
+  log('sys','Werkseinstellung · alle Daten gelöscht');
+  log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
+  log('net','pi5-brain.local nicht eingerichtet');
+  log('sys','bereit · Seitentaste drücken');
+});
+
 $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
@@ -1143,7 +1205,7 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   $('#s-nacht').disabled=true;
   heuteForm(true);
   $('#s-out').innerHTML='';
-  nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','zurückgesetzt');});
+  S.werk=false;S.eingerichtet=true;nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','Demo-Stand geladen');});
 
 /* ── Regler ──────────────────────────────────────────────────────────── */
 const rN=$('#s-n'),rT=$('#s-tb'),rS=$('#s-sw'),rL=$('#s-lern');
@@ -1177,7 +1239,7 @@ $('#s-run').addEventListener('click',()=>{
 /* Vier Zustände eines Tages, durchklickbar. */
 function phase(n){
   if(S.laeuft)return;
-  S.phase=n;
+  S.phase=n;S.werk=false;S.eingerichtet=true;
   document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===n));
   if(n===0){
     S.wlan=false;S.offlineSeit=Date.now()-7*3600e3;S.retry=T.RETRY;
@@ -1288,7 +1350,7 @@ setInterval(()=>{
 },1000);
 
 stufenMalen();stufe(-1);malen();stand();skalieren();
-phase(5);   // aufgemacht wird auf der Morgenseite nach Tag 2
+$('#b-werk').click();   // aufgemacht wird im Werkszustand
 log('sys','STASH Showcase · Simulation, keine echte Hardware');
 log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
 log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
