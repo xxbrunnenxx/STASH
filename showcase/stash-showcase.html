@@ -255,6 +255,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <div class="schalter" style="width:140px">
         <button id="b-serif" class="an">Serif</button><button id="b-sans">Sans</button>
       </div>
+      <div class="schalter" style="width:210px">
+        <button id="b-morgen" class="an">Morgenseite</button><button id="b-uebersicht">Übersicht mit Zählern</button>
+      </div>
     </div>
   </div>
 
@@ -418,7 +421,7 @@ function simuliere(anzahl,tbAnteil,schwelle,lernend){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',morgen:true,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -461,7 +464,25 @@ const band=t=>`<div class="band">${t}</div>`;
 
 const V={};
 
-V.heute=()=>{
+/* Was die Nachtschicht auf eine Seite schreibt. Von Hand gesetzt als
+   Muster für die Zielform — hier rechnet kein Modell, der Pi tut das. */
+V.morgen=()=>`
+ <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="regel stark"></div>
+ <div class="p" style="margin-bottom:11px">An der Überdachung hängt es an den Pfosten — davon war
+   gestern dreimal die Rede, zuletzt am Abend. Die Doppelstegplatten sind bei zwei Händlern
+   angefragt, die Frachtkosten stehen noch aus.</div>
+ <div class="p" style="margin-bottom:11px">Die PV lief die Woche über bei 18,4 kWh am Tag. Das
+   Brummen vom Wechselrichter kam zweimal vor; du wolltest nachsehen, ob er lose sitzt.</div>
+ <div class="p" style="margin-bottom:11px">Neu dazugekommen ist das Gehäuse — zweiteilig drucken,
+   Frontplatte magnetisch. Dafür gibt es seit gestern eine eigene Liste.</div>
+ <div class="p" style="margin-bottom:11px">Gestern warst du hauptsächlich draußen. Drei von vier
+   Fundamentlöchern sind fertig, beim vierten sitzt ein Betonrest im Boden.</div>
+ <div class="p">Donnerstag um halb elf kommt der Schornsteinfeger.</div>
+ <div class="regel"></div>
+ <div class="m">In der Nacht zusammengelegt:<br>#beton, #dachlatten, #doppelstegplatten → #überdachung</div>`;
+
+V.uebersicht=()=>{
  const na=[];for(let d=0;d<7&&na.length<4;d++){const t=new Date(HEUTE);t.setDate(HEUTE.getDate()+d);
   (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(na.length<4)na.push({tag:d===0?'heute':d===1?'morgen':WK[t.getDay()],u:e.u,t:e.t});});}
  const offen=S.erinnerungen.filter(e=>!e.f), letzte=S.verarbeitet[S.verarbeitet.length-1];
@@ -485,6 +506,8 @@ V.heute=()=>{
  <div class="z"><span class="t m">${S.tagebuch.length} Absätze · ${tw} Wörter</span></div>
  <div class="p" style="font-size:13.5px;margin-top:3px">„${esc(S.tagebuch[S.tagebuch.length-1].t.slice(0,96))} …"</div>`;
 };
+
+V.heute=()=>S.morgen?V.morgen():V.uebersicht();
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
@@ -780,6 +803,14 @@ function blaettern(d){if(!S.an||S.laeuft)return;
 $('#b-voll').addEventListener('click',()=>{if(S.an&&!S.laeuft)voll();});
 $('#b-aus').addEventListener('click',()=>{if(S.laeuft)return;S.an=!S.an;
   log('epd',S.an?'Panel aktiv':'Panel stromlos · Bild bleibt stehen');malen();stand();});
+$('#b-morgen').addEventListener('click',()=>heuteForm(true));
+$('#b-uebersicht').addEventListener('click',()=>heuteForm(false));
+function heuteForm(m){
+  S.morgen=m;
+  $('#b-morgen').classList.toggle('an',m);$('#b-uebersicht').classList.toggle('an',!m);
+  if(S.ansicht!=='heute'){S.ansicht='heute';}
+  S.an&&!S.laeuft?partial():malen();
+}
 $('#b-serif').addEventListener('click',()=>schrift(true));
 $('#b-sans').addEventListener('click',()=>schrift(false));
 function schrift(s){S.serif=s;$('#b-serif').classList.toggle('an',s);$('#b-sans').classList.toggle('an',!s);
@@ -795,7 +826,8 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null});
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,morgen:true});
+  heuteForm(true);
   $('#s-out').innerHTML='';
   nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','zurückgesetzt');});
 
