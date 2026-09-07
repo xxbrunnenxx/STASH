@@ -547,7 +547,7 @@ const V={};
 
 /* Was die Nachtschicht auf eine Seite schreibt. Von Hand gesetzt als
    Muster für die Zielform — hier rechnet kein Modell, der Pi tut das. */
-V.morgen=()=>S.nacht?V.morgenAusDaten():`
+V.morgen=()=>`
  <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
  <div class="regel stark"></div>
  <div class="p" style="margin-bottom:11px">An der Überdachung hängt es an den Pfosten — davon war
@@ -566,24 +566,28 @@ V.morgen=()=>S.nacht?V.morgenAusDaten():`
 /* Aus dem Bestand gerechnet, ohne Modell — deshalb liest es sich wie eine
    Meldung und nicht wie ein Absatz. Genau diese Lücke soll nachts der Pi füllen. */
 V.morgenAusDaten=()=>{
-  const r=S.simLauf,z=S.nacht;
-  const listen=Object.entries(S.listen).filter(([k])=>k!=='tagebuch');
-  const top=listen.sort((a,b)=>b[1].anz-a[1].anz).slice(0,3);
-  const geblieben=listen.filter(([,l])=>l.neu).map(([k])=>k);
+  const a=S.abend,z=S.nacht||[], weg=new Set(z.map(([alt])=>alt));
+  // Was von jedem Thema übrig ist, nachdem die Nacht zusammengelegt hat
+  const themen=Object.entries(a.themaZiel).map(([thema,ziele])=>{
+    const gesamt=Object.values(ziele).reduce((x,y)=>x+y,0);
+    const offen=Object.keys(ziele).filter(k=>!weg.has(k)&&S.listen[k]&&S.listen[k].neu);
+    return {thema,gesamt,teile:Object.keys(ziele).length,offen};
+  }).sort((x,y)=>y.gesamt-x.gesamt);
+  const satz=t=>t.offen.length>1
+    ? `liegt noch auf ${t.offen.length} Listen, die nicht zusammengefunden haben: ${t.offen.slice(0,3).map(k=>'#'+k).join(', ')}`
+    : t.offen.length===1 ? `steht unter #${t.offen[0]}` : `ist zusammengeführt`;
   return `
  <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
  <div class="regel stark"></div>
- <div class="p" style="margin-bottom:10px">Gestern sind ${r.tb+r.rest} Aufnahmen eingegangen,
-   ${r.tb} davon gingen ins Tagebuch.</div>
- <div class="p" style="margin-bottom:10px">Am meisten kam vor:
-   ${top.map(([k,l])=>'#'+k+' ('+l.anz+')').join(', ')}.</div>
- ${geblieben.length?`<div class="p" style="margin-bottom:10px">Neu geblieben nach der Nacht:
-   ${geblieben.slice(0,6).map(k=>'#'+k).join(', ')}${geblieben.length>6?' und '+(geblieben.length-6)+' weitere':''}.</div>`:''}
- <div class="p" style="margin-bottom:10px">Ohne Bewegung seit 63 Tagen: #dachrinne.</div>
+ <div class="p" style="margin-bottom:11px">Gestern warst du den ganzen Tag unterwegs.
+   ${a.tb+a.rest} Aufnahmen, ${a.tb} davon sind ins Tagebuch gegangen.</div>
+ ${themen.slice(0,3).map(t=>`<div class="p" style="margin-bottom:11px"><b style="font-weight:600">${esc(t.thema)}</b>
+   — ${t.gesamt} Aufnahmen, ${satz(t)}.</div>`).join('')}
  <div class="regel"></div>
- <div class="m">In der Nacht zusammengelegt: <b>${z.length}</b> Listen.<br>
-   ${z.slice(0,4).map(([a,b])=>'#'+a+' → #'+b).join('<br>')}${z.length>4?'<br>… und '+(z.length-4)+' weitere':''}</div>
- <div class="m" style="margin-top:8px">Listen: ${r.nachher} vor der Nacht, ${Object.keys(S.listen).length} danach.</div>`;
+ <div class="m">In der Nacht zusammengelegt: ${z.length} ${z.length===1?'Liste':'Listen'}.
+   ${z.slice(0,3).map(([x,y])=>'#'+x+' → #'+y).join(' · ')}</div>
+ ${themen.some(t=>t.offen.length>1)?`<div class="m" style="margin-top:7px">Nicht zusammengebracht,
+   weil kein gemeinsames Wort vorkam. Sag es mir, dann räume ich es heute Nacht.</div>`:''}`;
 };
 
 V.uebersicht=()=>{
@@ -634,7 +638,7 @@ V.abend=()=>{const a=S.abend;
    überarbeitet. Morgen früh steht hier, was sich verschoben hat.</div></div>`;
 };
 
-V.heute=()=>S.abend?V.abend():(S.morgen?V.morgen():V.uebersicht());
+V.heute=()=>S.phase===1?V.abend():S.phase===3?V.morgenAusDaten():(S.morgen?V.morgen():V.uebersicht());
 
 V.eingang=()=>{
  const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
@@ -1028,7 +1032,7 @@ function phase(n){
   }
   if(n===3){
     if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
-    S.abend=null;S.morgen=true;S.ansicht='heute';
+    S.morgen=true;S.ansicht='heute';
     $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
   }
   stand();partial();
@@ -1081,7 +1085,7 @@ setInterval(()=>{
 },1000);
 
 stufenMalen();stufe(-1);malen();stand();skalieren();
-phase(1);   // aufgemacht wird auf der Abendansicht: heimgekommen, Stapel durch
+phase(3);   // aufgemacht wird auf der Morgenseite: Tag, Nacht und Aufräumen sind durch
 log('sys','STASH Showcase · Simulation, keine echte Hardware');
 log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
 log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
