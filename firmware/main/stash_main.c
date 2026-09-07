@@ -18,12 +18,22 @@
 #include "sdkarte.h"
 
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
 static const char *TAG = "stash";
 static TaskHandle_t netz_task_handle;
+
+// Wann zuletzt jemand etwas gedrückt hat. Daraus entsteht die Ruhe: Nach
+// CONFIG_STASH_RUHE_NACH_S Sekunden fällt das Gerät auf „Heute" zurück,
+// zeichnet einmal sauber durch und legt das Panel stromlos. E-Paper hält das
+// Bild ohne Strom — die Seite steht dann da wie ein Aushang, bis wieder jemand
+// drückt. Das ist die einzige Eigenschaft, die dieses Gerät hat und ein
+// Telefon nie haben wird; sie ungenutzt zu lassen wäre die Verschwendung.
+static volatile int64_t letzte_bedienung_us;
+static volatile bool ruht;
 
 // Wie oft während der Aufnahme neu gezeichnet wird. Jeder Teilrefresh kostet
 // ~340 ms und ein bisschen Geisterbild; 700 ms sieht flüssig genug aus, ohne
@@ -62,10 +72,25 @@ static void netz_task(void *arg)
         const int belegt_mb = (int)((29800ULL * 1000000ULL > frei)
                                     ? (29800ULL * 1000000ULL - frei) / 1000000ULL : 0);
 
+        const bool soll_ruhen =
+            (esp_timer_get_time() - letzte_bedienung_us) / 1000000 >= CONFIG_STASH_RUHE_NACH_S;
+
         bool neu = false;
-        if (netz_bild_holen(panel_puffer(), &neu,
-                            sd_warteschlange_anzahl(), belegt_mb) == ESP_OK && neu) {
+        if (netz_bild_holen(panel_puffer(), &neu, sd_warteschlange_anzahl(),
+                            belegt_mb, soll_ruhen) != ESP_OK) {
+            continue;
+        }
+        if (soll_ruhen && !ruht) {
+            // Übergang in die Ruhe: immer zeichnen, auch wenn der ETag gleich
+            // wäre — die Fußleiste fällt weg und der Stempel kommt dazu.
+            panel_ruhen(NULL);
+            ruht = true;
+        } else if (neu && !soll_ruhen) {
             panel_zeigen(NULL, false);
+        } else if (neu && soll_ruhen) {
+            // Ruhend hat sich der Inhalt geändert. Kein Teilbild: Das Bild
+            // steht danach wieder stundenlang, es soll das saubere sein.
+            panel_ruhen(NULL);
         }
     }
 }
@@ -73,6 +98,13 @@ static void netz_task(void *arg)
 static void netz_anstossen(void)
 {
     if (netz_task_handle) xTaskNotifyGive(netz_task_handle);
+}
+
+// Jeder Tastendruck beendet die Ruhe — auch der, mit dem die Aufnahme beginnt.
+static void bedient(void)
+{
+    letzte_bedienung_us = esp_timer_get_time();
+    ruht = false;
 }
 
 static void aufnahme_beginnen(void)
@@ -133,6 +165,7 @@ void app_main(void)
     bedienung_init();
     netz_init();          // darf scheitern: dann bleibt alles auf der Karte
 
+    letzte_bedienung_us = esp_timer_get_time();
     xTaskCreate(netz_task, "netz", 8192, NULL, 5, &netz_task_handle);
     netz_anstossen();
 
@@ -141,6 +174,8 @@ void app_main(void)
     while (true) {
         taste_t t;
         if (xQueueReceive(bedienung_queue, &t, portMAX_DELAY) != pdTRUE) continue;
+
+        bedient();
 
         switch (t) {
         case TASTE_REC_AN:

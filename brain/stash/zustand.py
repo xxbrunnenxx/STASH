@@ -48,6 +48,9 @@ class Zustand:
     termine: dict[int, list[tuple[str, str]]] = field(default_factory=dict)
     erinnerungen: list[tuple[str, bool]] = field(default_factory=list)
     morgenseite: str = ""
+    geklaert: list[tuple[str, str]] = field(default_factory=list)
+    # Ruhe: das Gerät wird gerade nicht bedient und zeigt die Sperrseite.
+    ruhe: bool = False
 
     def blaettern(self, richtung: int) -> None:
         # In der Tiefe (Notiz, Listen-Detail) blättert der Knopf nicht weiter,

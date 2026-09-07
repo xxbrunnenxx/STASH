@@ -258,6 +258,7 @@ eine Notiz weg, weil das WLAN im falschen Moment gewackelt hat.
 | `format=png` | Mensch | PNG statt Bitstrom — dasselbe Bild, nur ansehbar. |
 | `wartend` | Gerät | Wie viele Aufnahmen noch auf der Karte liegen. |
 | `sd_mb` | Gerät | Wie voll die Karte ist. |
+| `ruhe=1` | Gerät | Das Gerät wird gerade nicht bedient — die Seite wird als Sperrseite gesetzt. |
 
 `wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
 
@@ -290,6 +291,32 @@ Bedingung: Er gehört nicht ins Internet. Kein Port-Forwarding, keine Freigabe i
 außen drankommen will, nimmt ein VPN ins eigene Netz.
 
 ---
+
+## Die Sperrseite
+
+Mit `ruhe=1` liefert `/v1/bild` dieselbe Seite in ihrer ruhenden Form. Drei Unterschiede, und alle
+drei folgen daraus, dass dieses Bild stundenlang stehen wird:
+
+- **Immer „Heute".** Ruhend gibt es keine acht Ansichten. Was das Gerät den halben Tag zeigt, soll
+  das sein, was man sehen will, nicht das, was zufällig zuletzt offen war.
+- **Keine Fußleiste.** Das sind 34 Pixel mehr für Inhalt.
+- **Die Uhrzeit wird zum Stempel:** `Stand 06:12` statt `06:12`.
+
+Und sie wird **voller gesetzt** als die bediente Fassung. Das ist kein Geschmack, sondern folgt aus
+der Nutzung: Eine Seite, die durchgeblättert wird, darf Luft haben — man holt sich das Nächste
+selbst. Eine Seite, die nur angeschaut wird, hat nur das, was draufsteht. Also: die verdichteten
+Absätze des Nachtlaufs, darunter „Zu tun" und „Diese Woche" nebeneinander statt untereinander,
+was seit gestern geklärt wurde, und der verbleibende Platz gefüllt mit dem Zuletztgesagten. Ganz
+unten, als Abbinder, zwei Zeilen: wie viel im Tagebuch steht und wie viele Aufnahmen durch sind.
+
+Der Abbinder ist eine Feststellung, kein Zähler. Kein Rückstand, keine Quote, keine Serie — die
+Seite sagt, was ist, und verlangt nichts.
+
+Ansehen kann man sie wie jede andere:
+
+```bash
+curl -o sperrseite.png "http://pi5-brain.local:8080/v1/bild?ruhe=1&format=png"
+```
 
 ## Was im Vault landet
 

@@ -130,6 +130,11 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .inhalt{position:absolute;top:30px;bottom:34px;left:0;right:0;overflow:hidden;padding:15px 18px}
 #screen.aus .kopfleiste,#screen.aus .fuss{display:none}
 #screen.aus .inhalt{top:0;bottom:0}
+/* Ruhend fällt nur die Fußleiste weg: „◀ zurück ● öffnen ▶ weiter" ist eine
+   Anleitung für eine Bedienung, die gerade nicht stattfindet. Die Kopfleiste
+   bleibt, weil dort steht, von wann das Bild ist. */
+#screen.ruhe .fuss{display:none}
+#screen.ruhe .inhalt{bottom:0}
 .ausnote{position:absolute;left:0;right:0;bottom:0;padding:7px 18px;border-top:1px solid var(--ink);
          font-size:11px;display:flex;justify-content:space-between}
 
@@ -270,6 +275,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     <div id="unterbau">
       <button class="knopf" id="b-voll">Vollrefresh</button>
       <button class="knopf" id="b-aus">Gerät aus</button>
+      <button class="knopf" id="b-ruhe">Sperrseite</button>
       <div class="schalter" style="width:140px">
         <button id="b-serif" class="an">Serif</button><button id="b-sans">Sans</button>
       </div>
@@ -591,7 +597,7 @@ function nachtlauf(L){
 /* Werkseinstellung. Das Gerät startet leer: keine Aufnahmen, keine
    Warteschlange, kein Tagebuch, vier leere feste Listen, kein Pi eingerichtet.
    Der Demo-Stand wird nur über den Knopf „Demo-Stand“ geladen. */
-const S={ansicht:'heute',werk:true,eingerichtet:false,phase:null,tagOffset:0,eingangN:0,eingangTag:null,tagebuchN:0,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:false,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',ruhe:false,ruheZeit:'',werk:true,eingerichtet:false,phase:null,tagOffset:0,eingangN:0,eingangTag:null,tagebuchN:0,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:false,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
   listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
           ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
@@ -629,7 +635,7 @@ const kopfleiste=()=>{const n=S.warteschlange.length;return `<div class="kopflei
  ${n?`<span class="s mo">${IK.stapel()} ${n}</span>`:''}
  <span class="s">${IK.wlan(S.wlan)}</span>
  <span class="s mo">${IK.akku(S.akku)} ${S.akku}%</span>
- <span class="mo">${uhr(new Date())}</span></div></div>`;};
+ <span class="mo">${S.ruhe?'Stand '+S.ruheZeit:uhr(new Date())}</span></div></div>`;};
 const tief=()=>S.ansicht==='notiz'||S.ansicht==='detail';
 const mitte=()=>tief()?'schließen':(S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length?'Notiz öffnen'
   :S.ansicht==='listen'?'Liste öffnen':'—';
@@ -996,12 +1002,24 @@ function minSeit(t){const m=Math.max(0,Math.round((Date.now()-t)/60000));
 
 /* ── Panel: malen, Refresh, Geisterbild ─────────────────────────────────── */
 const blatt=$('#blatt'),scr=$('#screen'),geist=$('#geist'),wisch=$('#wisch');
-const html=()=>kopfleiste()+'<div class="inhalt">'+V[S.ansicht]()+'</div>'+fuss();
+/* Ruhend werden die 34 Pixel der Fußleiste frei — und weißer Platz auf einem
+   Bild, das stundenlang steht, ist verschenkt. Was übrig bleibt, bekommt das
+   Zuletztgesagte: „Was habe ich heute eigentlich erzählt" ist das, was man im
+   Vorbeigehen liest, ohne etwas zu drücken. */
+const ruheFueller=()=>{
+  if(!S.ruhe||S.ansicht!=='heute'||!S.verarbeitet.length)return '';
+  const letzte=S.verarbeitet.slice(-4).reverse();
+  return `<div class="regel eng"></div>${band('Zuletzt gesagt')}`+
+    letzte.map(a=>`<div class="z" style="padding:1px 0"><span class="uhr">${a.uhr}</span>
+      <span class="t u trunk">${esc((a.rein||'').split('. ')[0])}.</span></div>`).join('');
+};
+const html=()=>kopfleiste()+'<div class="inhalt">'+V[S.ansicht]()+ruheFueller()+'</div>'+(S.ruhe?'':fuss());
 const ausnote=()=>'<div class="ausnote"><span>Gerät aus</span><span>Bild bleibt ohne Strom stehen</span></div>';
 
 function malen(){
   blatt.innerHTML=html()+(S.an?'':ausnote());
   scr.classList.toggle('aus',!S.an);
+  scr.classList.toggle('ruhe',S.ruhe&&S.an);
   scr.style.setProperty('--serif',S.serif?"'Literata','Iowan Old Style',Georgia,serif":"var(--sans)");
   navi();messwerte();
 }
@@ -1023,7 +1041,7 @@ function voll(fertig){
   setTimeout(()=>{messwerte();fertig&&fertig();},T.VOLL);
   log('epd','Vollrefresh '+kf(T.VOLL/1000)+' s · Geisterbild gelöscht');
 }
-function wechsel(id){if(S.ansicht===id)return;S.ansicht=id;partial();}
+function wechsel(id){const w=wach();if(S.ansicht===id){if(w)partial();return;}S.ansicht=id;partial();}
 
 /* ── Werkbank ───────────────────────────────────────────────────────────── */
 const STUFEN=['Mikrofon','SD-Puffer','Upload','Transkription','Aufräumen','Schlagwörter','Einsortieren','Vault','Rendern','Panel'];
@@ -1134,6 +1152,7 @@ function stand(){
   $('#b-rec-n').textContent=S.laeuft?'Ablauf läuft':'seitliche BOOT-Taste · nächste: '+AUFNAHMEN[S.naechste%AUFNAHMEN.length].kurz;
   $('#b-wlan').textContent=S.wlan?'WLAN aus':'WLAN an';
   $('#b-aus').textContent=S.an?'Gerät aus':'Gerät an';
+  $('#b-ruhe').textContent=S.ruhe?'aufwecken':'Sperrseite';
   $('#brain').classList.toggle('weg',!S.wlan);
   $('#brain-t').textContent=S.wlan?'pi5-brain · online':'pi5-brain · nicht erreichbar';
 }
@@ -1144,7 +1163,7 @@ blatt.addEventListener('click',e=>{
   const n=e.target.closest('[data-notiz]');if(n){S.zurueck=S.ansicht;S.notizNr=+n.dataset.notiz;S.ansicht='notiz';S.roh=false;partial();return;}
   const a=e.target.closest('[data-ansicht]');if(a){S.zurueck=S.ansicht;wechsel(a.dataset.ansicht);}
 });
-const rec=()=>S.laeuft?(aufnehmen.stopp&&aufnehmen.stopp()):aufnehmen();
+const rec=()=>{wach();return S.laeuft?(aufnehmen.stopp&&aufnehmen.stopp()):aufnehmen();};
 $('#b-rec').addEventListener('click',rec);
 $('#k-rec').addEventListener('click',rec);
 $('#k-m').addEventListener('click',oeffnen);
@@ -1152,6 +1171,7 @@ $('#k-m').addEventListener('click',oeffnen);
    Aufnehmen liegt auf der seitlichen BOOT-Taste und ist immer erreichbar. */
 function oeffnen(){
   if(!S.an||S.laeuft)return;
+  if(wach()){partial();return;}   // erster Druck weckt nur
   if(tief()){wechsel(S.zurueck||'heute');return;}
   if((S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length){
     S.zurueck=S.ansicht;S.notizNr=S.verarbeitet[S.verarbeitet.length-1].nr;S.roh=false;
@@ -1161,11 +1181,33 @@ function oeffnen(){
 $('#k-l').addEventListener('click',()=>blaettern(-1));
 $('#k-r').addEventListener('click',()=>blaettern(1));
 function blaettern(d){if(!S.an||S.laeuft)return;
+  if(wach()){partial();return;}
   const i=ANSICHTEN.findIndex(a=>a.id===S.ansicht);
   wechsel(ANSICHTEN[(i+d+ANSICHTEN.length)%ANSICHTEN.length].id);}
 $('#b-voll').addEventListener('click',()=>{if(S.an&&!S.laeuft)voll();});
 $('#b-aus').addEventListener('click',()=>{if(S.laeuft)return;S.an=!S.an;
   log('epd',S.an?'Panel aktiv':'Panel stromlos · Bild bleibt stehen');malen();stand();});
+
+/* Ruhezustand. E-Paper hält sein Bild ohne Strom — das ist die eine Eigenschaft,
+   die dieses Gerät hat und ein Telefon nie haben wird. Ungenutzt bliebe im
+   Leerlauf stehen, was zufällig zuletzt offen war; stattdessen fällt das Gerät
+   auf „Heute" zurück und steht da wie ein Aushang, bis wieder jemand drückt.
+   Der Vollrefresh dabei kostet nichts: Es sieht gerade niemand hin, und danach
+   steht das Bild stundenlang — es soll das saubere sein. */
+function ruhen(){
+  if(S.laeuft||!S.an)return;
+  S.ruhe=true;S.ansicht='heute';S.ruheZeit=uhr(new Date());
+  stand();voll();
+  log('epd','Sperrseite · Vollrefresh · Bild steht ohne Strom');
+}
+/* Jede Bedienung beendet die Ruhe — auch die, mit der eine Aufnahme beginnt. */
+function wach(){
+  if(!S.ruhe)return false;
+  S.ruhe=false;stand();return true;
+}
+$('#b-ruhe').addEventListener('click',()=>{
+  if(S.ruhe){wach();partial();}else ruhen();
+});
 $('#b-morgen').addEventListener('click',()=>heuteForm(true));
 $('#b-uebersicht').addEventListener('click',()=>heuteForm(false));
 function heuteForm(m){
@@ -1187,7 +1229,7 @@ $('#b-wlan').addEventListener('click',()=>{
 });
 $('#b-werk').addEventListener('click',()=>{
   if(S.laeuft)return;
-  Object.assign(S,{werk:true,phase:null,ansicht:'heute',zurueck:null,notizNr:null,roh:false,
+  Object.assign(S,{werk:true,phase:null,ansicht:'heute',ruhe:false,zurueck:null,notizNr:null,roh:false,
     wlan:false,an:true,partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
     listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
             ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
@@ -1204,7 +1246,7 @@ $('#b-werk').addEventListener('click',()=>{
 });
 
 $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
-  Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
+  Object.assign(S,{ansicht:'heute',ruhe:false,notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
    erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,abend:null,morgen:true,
@@ -1353,7 +1395,7 @@ function skalieren(){
 window.addEventListener('resize',skalieren);
 setInterval(()=>{
   messwerte();
-  if(S.an&&!S.laeuft){const k=blatt.querySelector('.kopfleiste');if(k)k.outerHTML=kopfleiste();}
+  if(S.an&&!S.laeuft&&!S.ruhe){const k=blatt.querySelector('.kopfleiste');if(k)k.outerHTML=kopfleiste();}
   if(!S.wlan){S.retry--;if(S.retry<=0){S.retry=T.RETRY;log('net','Versuch · pi5-brain.local nicht erreichbar');}
     if(S.an&&S.ansicht==='warteschlange'&&!S.laeuft){const i=blatt.querySelector('.inhalt');if(i)i.innerHTML=V.warteschlange();}}
 },1000);

@@ -15,17 +15,33 @@ from .rendern import BREITE, FUSS_H, HOEHE, KURZ, MONAT, RAND, SCHWARZ, WOCHENTA
 from .zustand import Notiz, Zustand
 
 UNTERKANTE = HOEHE - FUSS_H - 12
+# Ruhend fällt die Fußleiste weg — 34 Pixel, die dann Inhalt tragen.
+UNTERKANTE_RUHE = HOEHE - 12
 
 
 def _rahmen(z: Zustand) -> Blatt:
     b = Blatt()
-    b.kopfleiste(z.akku, z.wlan, z.wartend, datetime.now().strftime("%H:%M"))
+    b.kopfleiste(z.akku, z.wlan, z.wartend, datetime.now().strftime("%H:%M"),
+                 stempel=z.ruhe)
     return b
 
 
 def _abschluss(b: Blatt, z: Zustand) -> Blatt:
-    b.fussleiste(z.mittentext)
+    # Im Ruhezustand keine Fußleiste: „◀ zurück ● öffnen ▶ weiter" ist eine
+    # Anleitung für eine Bedienung, die gerade nicht stattfindet.
+    if not z.ruhe:
+        b.fussleiste(z.mittentext)
     return b
+
+
+def _boden(z: Zustand) -> int:
+    return UNTERKANTE_RUHE if z.ruhe else UNTERKANTE
+
+
+def _satz1(text: str) -> str:
+    """Der erste Satz, mit genau einem Schlusspunkt."""
+    kopf = text.split(". ")[0].rstrip()
+    return kopf if kopf.endswith((".", "!", "?", "…")) else kopf + "."
 
 
 def _datum_gross(b: Blatt, tag: date) -> None:
@@ -38,68 +54,136 @@ def _datum_gross(b: Blatt, tag: date) -> None:
 # ── 1 Heute ──────────────────────────────────────────────────────────────────
 
 def heute(z: Zustand, listen: dict[str, Liste]) -> Blatt:
+    """Ansicht 1 — und zugleich die Sperrseite.
+
+    Im Ruhezustand fällt das Gerät hierher zurück. E-Paper hält sein Bild ohne
+    Strom; die Seite steht also stundenlang und wird im Vorbeigehen gelesen,
+    ohne dass jemand etwas drückt. Deshalb wird sie ruhend voller gesetzt als
+    bedient: Sie wird nicht durchgeblättert, sie wird angeschaut, und leerer
+    Platz auf einem Bild, das steht, ist verschenkt.
+    """
     b = _rahmen(z)
     heute_ = date.today()
+    boden = _boden(z)
     _datum_gross(b, heute_)
     b.regel(stark=True)
 
-    # Liegt eine Seite vom Nachtlauf vor, ist sie die Seite. Sie ist das
-    # Ergebnis der Nacht — Zähler daneben wären nur Beiwerk.
-    if z.morgenseite:
-        for absatz in [a for a in z.morgenseite.split("\n") if a.strip()][:6]:
-            if b.y > UNTERKANTE - 60:
-                break
-            if absatz.lower().startswith("offen"):
-                b.absatz(absatz, "p_klein")
-            else:
-                b.absatz(absatz, "p")
-            b.y += 5
-        offen = [t for t, fertig in z.erinnerungen if not fertig]
-        if offen and b.y < UNTERKANTE - 70:
-            b.regel(eng=True)
-            b.text("Zu tun", "kursiv")
-            b.y += 17
-            for t in offen[:4]:
-                if b.y > UNTERKANTE - 20:
-                    break
-                b.eintrag(t, kasten=True, hoehe=19)
-        return _abschluss(b, z)
+    # Der Abbinder steht unten und wird zuerst gesetzt, damit der Inhalt
+    # darüber weiß, wo er aufhören muss.
+    abbinder = _abbinder(z)
+    if abbinder:
+        boden -= 15 * len(abbinder) + 8
 
-    # Ohne Nachtlauf: der schlichte Stand. Kein Rückstand, keine Quote —
-    # was ansteht, und was heute schon da war.
-    naechste = _naechste_termine(z, 3)
+    if z.morgenseite:
+        _morgen_inhalt(b, z, boden)
+    else:
+        _stand_inhalt(b, z, boden)
+
+    if abbinder:
+        b.y = boden + 8
+        b.d.line([RAND, b.y, BREITE - RAND, b.y], fill=SCHWARZ)
+        b.y += 6
+        for zeile in abbinder:
+            b.text(zeile, "m")
+            b.y += 15
+
+    return _abschluss(b, z)
+
+
+def _abbinder(z: Zustand) -> list[str]:
+    """Die zwei Zeilen ganz unten: was die Nacht getan hat, was der Tag war.
+
+    Keine Quote und kein Rückstand — eine Feststellung, die nichts verlangt.
+    """
+    zeilen = []
+    if z.tagebuch:
+        worte = sum(len(t.split()) for _, t in z.tagebuch)
+        zeilen.append(f"Im Tagebuch: {len(z.tagebuch)} Absätze · {worte} Wörter")
+    if z.notizen or z.wartend:
+        teil = f"{len(z.notizen)} Aufnahmen verarbeitet"
+        if z.wartend:
+            teil += f" · {z.wartend} noch auf der Karte"
+        zeilen.append(teil)
+    return zeilen
+
+
+def _morgen_inhalt(b: Blatt, z: Zustand, boden: int) -> None:
+    """Was der Nachtlauf verdichtet hat, plus was daraus zu tun ist."""
+    absaetze = [a.strip() for a in z.morgenseite.split("\n") if a.strip()]
+    for absatz in absaetze:
+        if b.y > boden - 40:
+            break
+        b.absatz(absatz, "p_klein" if absatz.lower().startswith("offen") else "p")
+        b.y += 4
+
+    offen = [t for t, fertig in z.erinnerungen if not fertig]
+    termine = [(tag, f"{uhr} {text}") for tag, uhr, text in _naechste_termine(z, 4)]
+    if (offen or termine) and b.y < boden - 60:
+        b.regel(eng=True)
+        platz = max(1, (boden - b.y - 20) // 19)
+        b.zweispaltig(("Zu tun", offen[:platz]), ("Diese Woche", termine[:platz]),
+                      teiler=0.63)
+
+    if z.geklaert and b.y < boden - 50:
+        b.regel(eng=True)
+        b.band("Seit gestern geklärt")
+        for frage, antwort in z.geklaert:
+            if b.y > boden - 20:
+                break
+            b.eintrag(frage, "", art="u", hoehe=19)
+            b.y -= 19
+            b.text(antwort, "m", rechts=True, dy=3)
+            b.y += 19
+
+    # Was danach an Papier übrig ist, bekommt das Zuletztgesagte. Auf einer
+    # Seite, die stundenlang steht, ist weißer Platz verschenkt — und „was habe
+    # ich heute eigentlich gesagt" ist das, was man im Vorbeigehen liest.
+    if z.notizen and b.y < boden - 70:
+        b.regel(eng=True)
+        b.band("Zuletzt gesagt")
+        for n in reversed(z.notizen):
+            if b.y > boden - 34:
+                break
+            b.text(f"{n.wann:%H:%M}", "mo", dy=2)
+            b.absatz(_satz1(n.rein), "u", einzug=48, zeilenhoehe=18)
+            b.y += 3
+
+
+def _stand_inhalt(b: Blatt, z: Zustand, boden: int) -> None:
+    """Ohne Nachtlauf: der schlichte Stand. Was ansteht, was heute schon da war."""
+    naechste = _naechste_termine(z, 4)
     if naechste:
         b.band("Nächste Termine")
         for tag, uhr, text in naechste:
+            if b.y > boden - 24:
+                break
             b.eintrag(text, f"{tag} {uhr}")
         b.regel()
 
     offen = [t for t, fertig in z.erinnerungen if not fertig]
-    if offen:
+    if offen and b.y < boden - 60:
         b.band("Fällig")
-        for t in offen[:4]:
+        for t in offen:
+            if b.y > boden - 24:
+                break
             b.eintrag(t, kasten=True)
         b.regel()
 
+    if b.y > boden - 70:
+        return
+
     b.band("Eingang")
     if z.notizen:
-        letzte = z.notizen[-1]
-        b.text(str(len(z.notizen)), "d2")
-        b.text(" Aufnahmen heute" + (f" · {z.wartend} wartend" if z.wartend else ""),
-               "m", x=RAND + b._breite(str(len(z.notizen)), "d2") + 6, dy=8)
-        b.y += 26
-        b.absatz("„" + letzte.rein.split(". ")[0] + " …\"", "p_klein")
-        b.text(f"{letzte.wann:%H:%M} · #{letzte.ziel}", "m")
-        b.y += 18
+        # Nicht nur zählen: Der Anriss der letzten Notizen ist das, was man im
+        # Vorbeigehen tatsächlich liest.
+        for n in reversed(z.notizen):
+            if b.y > boden - 46:
+                break
+            b.absatz("„" + _satz1(n.rein).rstrip(".") + " …\"", "p_klein")
+            b.text(f"{n.wann:%H:%M} · #{n.ziel}", "m")
+            b.y += 20
     else:
         b.absatz("Noch nichts aufgenommen. Seitentaste drücken, drauflosreden, fertig.", "p")
-
-    if z.tagebuch:
-        b.regel()
-        b.band("Tagebuch")
-        worte = sum(len(t.split()) for _, t in z.tagebuch)
-        b.eintrag(f"{len(z.tagebuch)} Absätze · {worte} Wörter", art="m")
-    return _abschluss(b, z)
 
 
 def _naechste_termine(z: Zustand, wieviele: int) -> list[tuple[str, str, str]]:
@@ -132,9 +216,9 @@ def eingang(z: Zustand) -> Blatt:
 
     gezeigt = 0
     for n in reversed(z.notizen):
-        if b.y > UNTERKANTE - 48:
+        if b.y > _boden(z) - 48:
             break
-        b.eintrag(n.rein.split(". ")[0] + ".", n.wann.strftime("%H:%M"), hoehe=19)
+        b.eintrag(_satz1(n.rein), n.wann.strftime("%H:%M"), hoehe=19)
         chips = " ".join(f"[{s}]" for s in n.schlagworte[:3])
         b.text(f"{n.dauer_s:.1f} s   {chips}", "m")
         b.text("abgelegt", "mo", rechts=True)
@@ -169,7 +253,7 @@ def listen_seite(z: Zustand, listen: dict[str, Liste]) -> Blatt:
             return 0
         b.band(titel)
         for name, l in gruppe[:grenze]:
-            if b.y > UNTERKANTE - 24:
+            if b.y > _boden(z) - 24:
                 break
             breite = max(4, int(72 * l.anzahl / hoechste))
             y0 = b.y + 4
@@ -187,7 +271,7 @@ def listen_seite(z: Zustand, listen: dict[str, Liste]) -> Blatt:
         b.y += 16
 
     still = [(n, l) for n, l in listen.items() if l.art == "verblasst"]
-    if still and b.y < UNTERKANTE - 70:
+    if still and b.y < _boden(z) - 70:
         b.regel()
         b.band("verblasst")
         y0 = b.y
@@ -220,7 +304,7 @@ def detail(z: Zustand, listen: dict[str, Liste], eintraege: list[tuple[str, str]
     b.regel(stark=True)
 
     for d, text in eintraege[:6]:
-        if b.y > UNTERKANTE - 90:
+        if b.y > _boden(z) - 90:
             break
         b.text(d, "mo")
         b.absatz(text, "u", einzug=48)
@@ -230,7 +314,7 @@ def detail(z: Zustand, listen: dict[str, Liste], eintraege: list[tuple[str, str]
         b.regel()
         b.band("Aufgaben")
         for text, fertig in aufgaben[:5]:
-            if b.y > UNTERKANTE - 60:
+            if b.y > _boden(z) - 60:
                 break
             b.kaestchen(RAND, b.y + 2, fertig)
             b.text(text, "u", x=RAND + 18)
@@ -241,7 +325,7 @@ def detail(z: Zustand, listen: dict[str, Liste], eintraege: list[tuple[str, str]
 
     # Die Transparenz-Anforderung: Wer wissen will, warum etwas hier gelandet
     # ist, liest die Wörter nach, die hierher sortieren.
-    if b.y < UNTERKANTE - 50:
+    if b.y < _boden(z) - 50:
         b.regel()
         b.text("Sortiert hierher bei", "kursiv")
         b.y += 18
@@ -286,7 +370,7 @@ def notiz(z: Zustand) -> Blatt:
         for t in n.aufgaben:
             b.eintrag(t, kasten=True, hoehe=19)
 
-    if b.y < UNTERKANTE - 40:
+    if b.y < _boden(z) - 40:
         b.regel(eng=True)
         b.eintrag("Transkription", f"conf {n.vertrauen:.2f}", art="m", hoehe=17)
         b.eintrag("Audio wird gelöscht", n.audio_bis, art="m", hoehe=17)
@@ -310,7 +394,7 @@ def tagebuch(z: Zustand) -> Blatt:
 
     gezeigt = 0
     for uhr, text in z.tagebuch:
-        if b.y > UNTERKANTE - 60:
+        if b.y > _boden(z) - 60:
             break
         b.text(uhr, "mo", dy=3)
         b.absatz(text, "p", einzug=48)
@@ -412,6 +496,10 @@ def warteschlange(z: Zustand, sd_belegt_mb: int = 0, sd_gesamt_mb: int = 29800,
 # ── Verteiler ────────────────────────────────────────────────────────────────
 
 def seite(z: Zustand, listen: dict[str, Liste], **kw) -> Blatt:
+    # Ruhend gibt es nur eine Seite: „Heute". Was das Gerät stundenlang zeigt,
+    # soll das sein, was man sehen will — nicht das, was zufällig zuletzt offen war.
+    if z.ruhe:
+        return heute(z, listen)
     if z.ansicht == "eingang":
         return eingang(z)
     if z.ansicht == "listen":

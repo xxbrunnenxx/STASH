@@ -149,7 +149,7 @@ Ein Weg, zwei Richtungen, beides HTTP:
 | Wann | Was |
 |---|---|
 | Nach jeder Aufnahme | `POST /v1/notiz`, `multipart/form-data`, Feld `datei`, Inhalt die WAV. Gelöscht wird von der Karte **erst nach einer 200er-Antwort** — sonst wäre eine Notiz weg, weil das WLAN gewackelt hat. |
-| Alle 30 s und nach jedem Tastendruck | `GET /v1/bild?wartend=…&sd_mb=…` mit `If-None-Match`. Kommt `304`, wird nicht gezeichnet. |
+| Alle 30 s und nach jedem Tastendruck | `GET /v1/bild?wartend=…&sd_mb=…&ruhe=…` mit `If-None-Match`. Kommt `304`, wird nicht gezeichnet. |
 | Bei Drehknopf | `POST /v1/bedienung`, `{"taste":"zurueck"\|"oeffnen"\|"weiter"}`. |
 
 Der ETag ist nicht Feinschliff, sondern der Grund, warum das Gerät überhaupt regelmäßig fragen
@@ -169,7 +169,36 @@ Beschreibung steht in [brain/README.md](../brain/README.md#die-schnittstelle).
 | `panel_treiber.c` | SPI, Reset, BUSY — alles, was **nicht** vom Controller-Typ abhängt. |
 | `epd_sequenz.h` | Was vom Controller-Typ abhängt. Die eine Datei, die du füllen musst. |
 | `bedienung.c` | Vier Taster, Entprellen, Aufwachen aus dem Light-Sleep. |
-| `Kconfig.projbuild` | Alle 29 Einstellungen, die `idf.py menuconfig` zeigt. |
+| `Kconfig.projbuild` | Alle 30 Einstellungen, die `idf.py menuconfig` zeigt. |
+
+## Die Sperrseite
+
+Nach `CONFIG_STASH_RUHE_NACH_S` Sekunden ohne Tastendruck (Vorgabe: 180) fällt das Gerät von selbst
+auf **Heute** zurück, zeichnet einmal komplett durch und legt den Panel-Controller stromlos.
+
+Das ist die wichtigste Eigenschaft der Hardware, und ohne diesen Schritt bliebe sie ungenutzt:
+**E-Paper hält sein Bild ohne Strom.** Ein Gerät, das im Leerlauf stehen lässt, was zufällig zuletzt
+offen war, ist zehn Stunden lang das Bild einer leeren Warteschlange. Eines, das zurückfällt, ist
+zehn Stunden lang ein Aushang — man sieht ihn im Vorbeigehen, ohne etwas zu drücken, ohne
+Benachrichtigung, ohne Wecken.
+
+Drei Entscheidungen dahinter:
+
+- **Vollrefresh beim Einschlafen, nicht beim Aufwachen.** Das Bild steht danach stundenlang, es
+  soll das saubere sein. Und der Moment kostet nichts: Es sieht gerade niemand hin.
+- **Die Fußleiste fällt weg.** `◀ zurück ● öffnen ▶ weiter` ist eine Anleitung für eine Bedienung,
+  die gerade nicht stattfindet. Macht 34 Pixel für Inhalt frei.
+- **Die Kopfleiste bleibt, die Uhr wird zum Stempel.** Auf einem stehenden Bild ist „von wann ist
+  das hier" die nützlichste Information überhaupt. Damit man sie nicht für eine laufende Uhr hält,
+  steht `Stand 06:12` da und nicht `06:12`.
+
+Ob es ruht, weiß nur das Gerät — es zählt die Zeit seit dem letzten Tastendruck und schickt das als
+`&ruhe=1` mit. Der Pi rät das nicht. Jeder Tastendruck beendet die Ruhe, auch der, mit dem eine
+Aufnahme beginnt; der erste Druck weckt nur und blättert noch nicht.
+
+Ändert sich der Inhalt, während das Gerät ruht, wird der Controller kurz geweckt, komplett neu
+gezeichnet und wieder schlafen gelegt — nie ein Teilbild, weil das Ergebnis wieder stundenlang
+stehen bleibt.
 
 ## Stromverbrauch
 

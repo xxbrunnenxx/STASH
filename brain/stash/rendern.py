@@ -173,6 +173,40 @@ class Blatt:
         self.text(s, art, x=x)
         self.y += hoehe
 
+    def zweispaltig(self, links: tuple[str, list], rechts: tuple[str, list],
+                    hoehe: int = 19, teiler: float = 0.58) -> None:
+        """Zwei Spalten nebeneinander.
+
+        Auf 480 Pixel Breite ist eine einspaltige Aufgabenliste Verschwendung:
+        Die Zeilen sind kurz, rechts bleibt Papier leer. Ruhend, wo die Seite
+        stundenlang steht und nicht bedient wird, zählt jede genutzte Zeile.
+        """
+        x_l, x_r = RAND, RAND + int((BREITE - 2 * RAND) * teiler)
+        y0 = self.y
+        self.d.text((x_l, y0), links[0], font=self.f["kursiv"], fill=SCHWARZ)
+        self.d.text((x_r, y0), rechts[0], font=self.f["kursiv"], fill=SCHWARZ)
+        y0 += 17
+
+        maxb_l = x_r - x_l - 26
+        for i, t in enumerate(links[1]):
+            self.kaestchen(x_l, y0 + i * hoehe + 2)
+            s = t
+            while self._breite(s, "u") > maxb_l and len(s) > 4:
+                s = s[:-2]
+            self.d.text((x_l + 18, y0 + i * hoehe), s + ("…" if s != t else ""),
+                        font=self.f["u"], fill=SCHWARZ)
+
+        maxb_r = BREITE - RAND - x_r
+        for i, (marke, t) in enumerate(rechts[1]):
+            self.d.text((x_r, y0 + i * hoehe + 1), marke, font=self.f["mo"], fill=SCHWARZ)
+            s, versatz = t, self._breite(marke, "mo") + 6
+            while self._breite(s, "u") > maxb_r - versatz and len(s) > 4:
+                s = s[:-2]
+            self.d.text((x_r + versatz, y0 + i * hoehe), s + ("…" if s != t else ""),
+                        font=self.f["u"], fill=SCHWARZ)
+
+        self.y = y0 + max(len(links[1]), len(rechts[1])) * hoehe + 2
+
     def invers(self, text: str, hoehe: int = 24) -> None:
         self.d.rectangle([RAND - 8, self.y, BREITE - RAND + 8, self.y + hoehe], fill=SCHWARZ)
         self.d.text((RAND, self.y + 4), text, font=self.f["u_fett"], fill=WEISS)
@@ -180,13 +214,22 @@ class Blatt:
 
     # ── Leisten ──────────────────────────────────────────────────────────────
 
-    def kopfleiste(self, akku: int, wlan: bool, wartend: int, uhr: str) -> None:
+    def kopfleiste(self, akku: int, wlan: bool, wartend: int, uhr: str,
+                   stempel: bool = False) -> None:
+        """Die dünne Leiste oben.
+
+        `stempel` macht aus der Uhrzeit eine Altersangabe: Auf einem Bild, das
+        stundenlang steht, ist „von wann ist das hier" die nützlichste
+        Information — aber an der Stelle, an der sonst eine Uhr sitzt, liest man
+        erst einmal eine Uhr. Das Wort davor räumt die Zweideutigkeit weg.
+        """
         self.d.line([0, KOPF_H, BREITE, KOPF_H], fill=SCHWARZ)
         self.d.text((14, 8), "S T A S H", font=self.f["m"], fill=SCHWARZ)
 
+        zeit = f"Stand {uhr}" if stempel else uhr
         x = BREITE - 14
-        x -= self._breite(uhr, "mo")
-        self.d.text((x, 8), uhr, font=self.f["mo"], fill=SCHWARZ)
+        x -= self._breite(zeit, "mo")
+        self.d.text((x, 8), zeit, font=self.f["mo"], fill=SCHWARZ)
 
         p = f"{akku}%"
         x -= self._breite(p, "mo") + 10
