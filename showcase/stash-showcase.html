@@ -57,6 +57,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .schalter{display:flex;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
 .schalter button{flex:1;padding:6px 4px;font-size:11px;color:var(--mute);background:var(--void)}
 .schalter button.an{background:var(--edge);color:var(--chalk)}
+.sim{padding:2px 14px 18px;display:flex;flex-direction:column;gap:9px}
+.sim label{display:block;font-size:11.5px;color:var(--mute)}
+.sim label b{float:right;font-family:var(--mono);font-size:11px;color:var(--chalk);font-weight:400}
+.sim input[type=range]{width:100%;margin-top:4px;accent-color:#8b9096;height:14px}
+.sim .zeileschalter{display:flex;align-items:center;gap:6px;color:var(--mute)}
+.sim .zeileschalter input{accent-color:#8b9096}
+#s-out{font-family:var(--mono);font-size:10px;line-height:1.65;color:var(--mute)}
+#s-out b{color:var(--chalk);font-weight:500}
+#s-out .warn{color:var(--chalk)}
 
 /* ── Gerät ─────────────────────────────────────────────────────────────── */
 #geraet{background:linear-gradient(180deg,#1d1e21,#141517);border:1px solid #34363b;
@@ -205,6 +214,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <button class="knopf" id="b-wlan">WLAN aus</button>
       <button class="knopf" id="b-reset">Zurücksetzen</button>
     </div>
+    <div class="rubrik">Tagessimulation</div>
+    <div class="sim">
+      <label>Aufnahmen <b id="s-n-v">120</b><input type="range" id="s-n" min="0" max="200" step="10" value="120"></label>
+      <label>davon Tagebuch <b id="s-tb-v">50 %</b><input type="range" id="s-tb" min="0" max="100" step="5" value="50"></label>
+      <label>Schwelle <b id="s-sw-v">0.62</b><input type="range" id="s-sw" min="30" max="95" step="1" value="62"></label>
+      <label class="zeileschalter"><input type="checkbox" id="s-lern"> Listen lernen Schlagwörter dazu</label>
+      <button class="knopf haupt" id="s-run">Tag durchrechnen</button>
+      <div id="s-out"></div>
+    </div>
   </div>
 
   <div id="mitte">
@@ -345,8 +363,62 @@ const ERINNERUNGEN=[
 const KALENDER={1:[{u:'09:00',t:'Zahnarzt'}],2:[{u:'07:30',t:'Baustoffhandel, Abholung'}],
  3:[{u:'18:30',t:'Elternabend'}],4:[{u:'14:00',t:'Lieferung Holz'}],5:[{u:'10:00',t:'Sperrmüll'}]};
 
+/* ── Tagessimulation ─────────────────────────────────────────────────────
+   Die Einsortier-Regel aus dem README, auf einen ganzen Tag angewandt:
+   Schlagwörter gegen Trigger-Wörter, Anteil der Treffer ist der Score,
+   unter der Schwelle wird eine neue Liste angelegt. */
+const THEMEN=[
+ [12,[['überdachung','pfosten','bestellen'],['überdachung','sparren','abstand'],
+      ['doppelstegplatten','preis','händler'],['fundament','beton','frostfrei'],
+      ['überdachung','neigung','giebel'],['dachlatten','zuschnitt','maß']]],
+ [8,[['pv','ertrag','kilowattstunden'],['wechselrichter','brummen','befestigung'],
+     ['einspeisung','vergütung','abrechnung'],['pv','verschattung','baum']]],
+ [7,[['einkaufen','kaffee','haferflocken'],['besorgen','schrauben','baumarkt'],
+     ['einkaufen','brot','milch'],['mitbringen','klebeband']]],
+ [5,[['termin','schornsteinfeger','uhr'],['termin','zahnarzt','uhr'],['kommt','lieferung','uhr']]],
+ [3,[['gehäuse','3d-druck','magnete'],['gehäuse','filament','druckbett'],['gehäuse','frontplatte','toleranz']]],
+ [2,[['werkstatt','regal','aufräumen'],['werkstatt','beleuchtung','led']]],
+ [2,[['brennholz','stapeln','trocknen'],['brennholz','kettensäge','kette']]],
+ [2,[['zaun','pfosten','setzen'],['zaun','tor','beschlag']]],
+ [2,[['heizung','entlüften','druck'],['heizung','thermostat','tausch']]],
+ [1,[['kompost','umsetzen','sieb']]],[1,[['fahrrad','schaltung','einstellen']]],
+ [1,[['auto','inspektion','werkstatt']]],[1,[['keller','feuchte','messen']]],
+ [1,[['versicherung','police','kündigen']]],[1,[['steuer','belege','sortieren']]],
+ [1,[['urlaub','fähre','buchen']]],[1,[['rezept','sauerteig','anstellgut']]],
+ [1,[['nachbarn','grenze','absprache']]],[1,[['teich','pumpe','filter']]],
+ [1,[['dachboden','dämmung','klemmfilz']]],[1,[['obsidian','plugin','tasks']]],
+ [1,[['dachrinne','laub','gitter']]],[1,[['schule','elternabend','termin']]],
+ [1,[['wasserleitung','absperrhahn','tropft']]],
+];
+function treffer(keys,trig){let t=0;keys.forEach(k=>{if(trig.has(k))t++;});return keys.length?t/keys.length:0;}
+function simuliere(anzahl,tbAnteil,schwelle,lernend){
+  const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
+  const vorher=Object.keys(L).length;
+  const tb=Math.round(anzahl*tbAnteil/100), rest=anzahl-tb;
+  const vorrat=[];THEMEN.forEach(([g,m])=>{for(let i=0;i<g;i++)vorrat.push(m[i%m.length]);});
+  const neu=[],ziele={},hist={};let einzel=0;
+  L['tagebuch'].anz+=tb;
+  for(let i=0;i<rest;i++){
+    const keys=vorrat[i%vorrat.length];
+    let beste=null,best=0;
+    for(const [name,l] of Object.entries(L)){const sc=treffer(keys,l.trig);if(sc>best){best=sc;beste=name;}}
+    const stufe=best.toFixed(2);hist[stufe]=(hist[stufe]||0)+1;
+    if(best>=schwelle){L[beste].anz++;ziele[beste]=(ziele[beste]||0)+1;
+      if(lernend)keys.forEach(k=>L[beste].trig.add(k));}
+    else{
+      const name=keys.slice().sort()[0];
+      if(L[name]){L[name].anz++;ziele[name]=(ziele[name]||0)+1;keys.forEach(k=>L[name].trig.add(k));}
+      else{L[name]={art:'gewachsen',anz:1,seit:'heute',neu:true,trig:new Set(keys)};
+        neu.push(name);ziele[name]=1;}
+    }
+  }
+  Object.keys(L).forEach(k=>{if(L[k].neu&&ziele[k]===1)einzel++;});
+  return {L,vorher,nachher:Object.keys(L).length,neu:neu.length,einzel,tb,rest,hist,
+          groesste:Object.entries(ziele).sort((a,b)=>b[1]-a[1])[0]||['—',0]};
+}
+
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',zurueck:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -439,7 +511,9 @@ V.listen=()=>{
  <div class="regel stark"></div>
  ${band('fest')}${g('fest').map(row).join('')}
  <div class="regel"></div>
- ${band('gewachsen')}${g('gewachsen').map(([id,l])=>row([id,l])+`<div class="m" style="padding-left:0;margin:-2px 0 4px">angelegt ${l.seit}</div>`).join('')}
+ ${band('gewachsen · '+g('gewachsen').length)}${g('gewachsen').slice(0,S.simLauf?12:3).map(([id,l])=>
+   row([id,l])+(S.simLauf?'':`<div class="m" style="padding-left:0;margin:-2px 0 4px">angelegt ${l.seit}</div>`)).join('')}
+ ${g('gewachsen').length>(S.simLauf?12:3)?`<div class="m" style="margin-top:4px">… und ${g('gewachsen').length-(S.simLauf?12:3)} weitere Listen, die nicht auf die Seite passen</div>`:''}
  <div class="regel"></div>
  ${band('verblasst')}
  ${g('verblasst').map(([id,l])=>`<div class="verblasst">${row([id,l])}</div>
@@ -721,8 +795,37 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY});
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null});
+  $('#s-out').innerHTML='';
   nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','zurückgesetzt');});
+
+/* ── Regler ──────────────────────────────────────────────────────────── */
+const rN=$('#s-n'),rT=$('#s-tb'),rS=$('#s-sw'),rL=$('#s-lern');
+function reglerText(){
+  $('#s-n-v').textContent=rN.value;
+  $('#s-tb-v').textContent=rT.value+' %';
+  $('#s-sw-v').textContent=(rS.value/100).toFixed(2).replace('.',',');
+}
+[rN,rT,rS].forEach(r=>r.addEventListener('input',reglerText));
+reglerText();
+$('#s-run').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  const an=+rN.value, tba=+rT.value, sw=rS.value/100, le=rL.checked;
+  const r=simuliere(an,tba,sw,le);
+  S.listen=r.L; S.simLauf=r; S.ansicht='listen';
+  $('#s-out').innerHTML=
+    `<div><b>${an}</b> Aufnahmen · ${r.tb} Tagebuch · ${r.rest} einzusortieren</div>`+
+    `<div>Listen <b>${r.vorher}</b> → <b class="${r.nachher>r.vorher*2?'warn':''}">${r.nachher}</b>`+
+    `  ·  neu <b>${r.neu}</b></div>`+
+    `<div>davon mit einem Eintrag: <b>${r.einzel}</b></div>`+
+    `<div>größte: #${esc(r.groesste[0])} (${r.groesste[1]})</div>`+
+    `<div style="margin-top:5px">bester Treffer je Aufnahme:</div>`+
+    Object.entries(r.hist).sort().map(([k,v])=>`<div>&nbsp;&nbsp;${k.replace('.',',')} · ${v}×${+k>=sw?' <b>trifft</b>':''}</div>`).join('')+
+    `<div style="margin-top:4px">Bei drei Schlagwörtern gibt es nur 0 · 0,33 · 0,67 · 1,00 — dazwischen ändert die Schwelle nichts.</div>`+
+    (r.neu>r.rest*0.4?`<div class="warn" style="margin-top:5px">Mehr als jede dritte Aufnahme legt eine neue Liste an.</div>`:'');
+  log('sim',an+' Aufnahmen · Schwelle '+(sw).toFixed(2)+(le?' · lernend':'')+' → '+r.nachher+' Listen, '+r.neu+' neu');
+  partial();
+});
 
 function skalieren(){
   const s=window.innerWidth<=900;
