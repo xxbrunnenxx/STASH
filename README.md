@@ -15,9 +15,10 @@ funktionieren wie an guten. Was daraus folgt, steht unter
 
 *Ein Stash ist der Vorrat, den man sich weglegt.*
 
-**Status:** Spezifikation. Es gibt noch keinen lauffähigen Code — dieses Dokument beschreibt, was
-gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
-[Showcase erzeugen](#showcase-erzeugen)).
+**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Was noch fehlt, ist
+Hardware unter dem Code: Die Pin-Nummern des Boards stehen im öffentlichen Datenblatt nicht und
+müssen aus dem Schaltplan eingetragen werden — siehe [firmware/README.md](firmware/README.md).
+Der Brain-Teil läuft ohne Gerät, [brain/README.md](brain/README.md) zeigt wie.
 
 ---
 
@@ -28,6 +29,7 @@ gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
 - [Stückliste](#stückliste)
 - [Showcase erzeugen](#showcase-erzeugen)
 - [Repo-Struktur](#repo-struktur)
+- [Bauen und betreiben](#bauen-und-betreiben)
 - [Harte Regeln](#harte-regeln)
 - [Design](#design)
 - [Die acht Geräte-Ansichten](#die-acht-geräte-ansichten)
@@ -144,13 +146,48 @@ Der Showcase ist **nicht** die Firmware und **nicht** das Pi-Setup.
 ```
 stash/
 ├─ README.md              dieses Dokument (Spezifikation + Bauauftrag)
-├─ LICENSE               fehlt noch, siehe Lizenz
+├─ LICENSE                fehlt noch, siehe Lizenz
 ├─ showcase/
-│  └─ stash-showcase.html
-├─ firmware/              ESP-IDF, noch leer
-├─ brain/                 Pi-Dienste, noch leer
+│  └─ stash-showcase.html bedienbare Simulation, ein File, kein Build
+├─ firmware/              ESP-IDF-Projekt für den ESP32-S3
+│  ├─ README.md           Installation, Pinbelegung, Flashen
+│  └─ main/               Aufnahme · SD-Warteschlange · Upload · Panel
+├─ brain/                 die Dienste auf dem Pi 5
+│  ├─ README.md           Installation, Konfiguration, systemd
+│  ├─ stash/              Transkription · Aufräumen · Einsortieren · Vault · Renderer
+│  └─ systemd/            Dienst und Nacht-Timer
 └─ gehaeuse/              STL/STEP, noch leer
 ```
+
+**Die Arbeitsteilung.** Das Gerät kann vier Dinge: aufnehmen, auf die Karte puffern, hochladen,
+anzeigen. Es layoutet nichts und entscheidet nichts — der Pi schickt ein fertiges 1-Bit-Bild,
+480 × 800. Umbruch, Verdichtung und die Frage, was auf die Seite passt, gehören dorthin, wo der
+ganze Bestand liegt, nicht auf einen Mikrocontroller.
+
+Übertragen wird beides über WLAN, in eine Richtung die Aufnahme, in die andere das Bild. Der
+Systemüberblick nennt WLAN *oder* BLE; gebaut ist ein Weg, der beides trägt, statt zweier halber.
+BLE bleibt für den Fall interessant, dass kein WLAN da ist, aber ein Telefon — das ist eine eigene
+Ausbaustufe.
+
+## Bauen und betreiben
+
+Zwei Teile, zwei Anleitungen. Jede sagt nicht nur, was einzutippen ist, sondern was der Schritt
+bewirkt — Anleitungen, die man nur abschreibt, helfen beim nächsten Fehler nicht.
+
+| Teil | Anleitung | Kurz |
+|---|---|---|
+| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pins aus dem Schaltplan in `idf.py menuconfig`, dann `idf.py flash monitor` |
+| Brain | [brain/README.md](brain/README.md) | `python3 -m venv .venv && pip install -e .`, Konfiguration nach `~/.config/stash/stash.toml`, `systemctl enable --now stash-brain` |
+
+Der Brain-Teil braucht das Gerät nicht. Eine beliebige Sprachaufnahme reicht, um den ganzen Weg zu
+sehen:
+
+```bash
+curl -F "datei=@probe.wav" http://pi5-brain.local:8080/v1/notiz
+curl -o heute.png "http://pi5-brain.local:8080/v1/bild?ansicht=heute&format=png"
+```
+
+Das zweite Bild ist genau das, was auf dem E-Paper landet — nur als PNG statt als Bitstrom.
 
 ## Harte Regeln
 
@@ -354,10 +391,13 @@ gebaut wurde.
 
 ## Fahrplan
 
-1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ← *hier*
-2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, BLE-Übertragung, Panel-Ansteuerung
-3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber
-4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen
+1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ✓
+2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, Übertragung, Panel-Ansteuerung ✓ geschrieben,
+   ungetestet auf Hardware: Pinbelegung und die Kommandofolgen des E-Paper-Controllers fehlen noch
+3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber,
+   Renderer, Nachtlauf ✓ läuft ← *hier*
+4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen steht, Schreiben ist
+   angelegt und ungeprüft
 5. **Gehäuse** — zweiteilig gedruckt, magnetische Frontplatte, SD ohne Demontage erreichbar
 6. **Feinschliff** — Akkulaufzeit messen, Refresh-Strategie und Weckintervalle optimieren
 

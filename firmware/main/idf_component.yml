@@ -1,0 +1,7 @@
+dependencies:
+  idf:
+    version: ">=5.2"
+  # ES8311-Codec: Registersatz von Espressif, nicht von Hand geraten.
+  espressif/es8311: "^1.0.0"
+  # Damit das Gerät pi5-brain.local findet, ohne feste IP.
+  espressif/mdns: "^1.2.0"

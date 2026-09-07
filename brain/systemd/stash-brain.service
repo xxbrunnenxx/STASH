@@ -1,0 +1,28 @@
+[Unit]
+Description=STASH Brain — Sprachnotizen transkribieren und einsortieren
+Documentation=https://github.com/xxbrunnenxx/stash
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/stash/brain
+ExecStart=/home/pi/stash/brain/.venv/bin/stash-brain
+Restart=on-failure
+RestartSec=5
+
+# Der Dienst braucht den Vault, seine Konfiguration und sonst nichts.
+ProtectSystem=strict
+ReadWritePaths=/home/pi/Obsidian
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+# Whisper darf rechnen, aber nicht die Bedienoberfläche lahmlegen.
+Nice=5
+CPUWeight=60
+
+[Install]
+WantedBy=multi-user.target
