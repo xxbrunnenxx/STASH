@@ -92,21 +92,28 @@ Aufnahmen landen erst dort und werden abgearbeitet, sobald der Pi wieder erreich
 **Gerät:** [Waveshare ESP32-S3-ePaper-3.97](https://docs.waveshare.com/ESP32-S3-ePaper-3.97)
 (SKU 33552 / 33810 EN / 33811 Kit)
 
-Diese Angaben stammen aus dem Datenblatt. Nichts davon erfinden oder ändern:
+Diese Angaben stammen aus dem Datenblatt. Nichts davon erfinden oder ändern. Die Spalte *Quelle*
+sagt, was dort wörtlich steht und was Annahme ist — was nicht bestätigt ist, darf nirgends als
+Tatsache auftauchen:
 
-| Komponente | Details |
-|---|---|
-| SoC | ESP32-S3-WROOM-1-N16R8, 16 MB Flash, 8 MB PSRAM, 240 MHz |
-| Display | E-Paper 800 × 480, schwarz/weiß — **hochkant benutzt: 480 breit × 800 hoch** |
-| Audio | Mikrofon, ES8311 Codec, NS4150B Verstärker → **das Gerät nimmt selbst auf** |
-| Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** |
-| Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss |
-| Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU |
-| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C |
-| Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT |
-| Funk | 2,4 GHz WLAN (b/g/n), BLE 5 |
+| Komponente | Details | Quelle |
+|---|---|---|
+| SoC | ESP32-S3-WROOM-1-N16R8, 16 MB Flash, 8 MB PSRAM, 240 MHz | bestätigt |
+| Display | E-Paper 800 × 480 — **hochkant benutzt: 480 breit × 800 hoch** | bestätigt |
+| Farbtiefe | 1 Bit, schwarz/weiß | **angenommen** — das Datenblatt sagt nur „high contrast" |
+| Audio ein | Mikrofon, ES8311 Codec → **das Gerät nimmt selbst auf** („voice capture") | bestätigt |
+| Audio aus | NS4150B Verstärker, MX1.25 Lautsprecher-Anschluss | bestätigt, **bislang ungenutzt** |
+| Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** | bestätigt |
+| Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss | bestätigt |
+| Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU | bestätigt |
+| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C | bestätigt |
+| Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT | bestätigt |
+| Funk | 2,4 GHz WLAN (b/g/n), BLE 5 (LE) | bestätigt |
 
-Die drei Richtungen des Drehknopfs sind die komplette Bedienung.
+**Belegung.** Der Drehknopf blättert und öffnet: `◀ zurück · ● öffnen · ▶ weiter`. Das Aufnehmen
+liegt auf der seitlichen BOOT-Taste und ist dadurch aus jeder Ansicht erreichbar, ohne vorher
+irgendwohin navigieren zu müssen — genau das verlangt „Knopf drücken, drauflosreden, fertig".
+PWR bleibt der Stromversorgung vorbehalten.
 
 **Brain:** Raspberry Pi 5, 16 GB RAM, 1 TB NVMe-SSD, aktive Kühlung.
 
@@ -137,7 +144,7 @@ Der Showcase ist **nicht** die Firmware und **nicht** das Pi-Setup.
 ```
 stash/
 ├─ README.md              dieses Dokument (Spezifikation + Bauauftrag)
-├─ LICENSE
+├─ LICENSE               fehlt noch, siehe Lizenz
 ├─ showcase/
 │  └─ stash-showcase.html
 ├─ firmware/              ESP-IDF, noch leer
@@ -206,7 +213,7 @@ Unter 1100 px darf die rechte Spalte unter das Gerät rutschen. Der Screen bleib
 
 Jede hat oben eine dünne Statusleiste (STASH · Warteschlangen-Zähler · WLAN · Akku · Uhrzeit,
 Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Drehknopf-Belegung
-`◀ zurück   ● aufnehmen   ▶ weiter`.
+`◀ zurück   ● öffnen   ▶ weiter`.
 
 1. **Heute** — Datum groß in Literata, darunter durch Linien getrennt: nächste Kalendertermine,
    fällige Erinnerungen mit Kästchen, Eingangs-Zähler mit Anriss der letzten Notiz, Tagebuch-Zähler.
@@ -256,18 +263,20 @@ Log-Format `HH:MM:SS.mmm  modul  text`, monospace:
 14:07:31.884  queue    → /sd/stash/q/0f3a.wav
 14:07:32.010  net      pi5-brain.local erreichbar · RSSI −54 dBm
 14:07:32.402  net      Upload 310 kB in 392 ms
-14:07:36.610  whisper  faster-whisper small int8 · 4,2 s · 47 Wörter · conf 0.94
+14:07:36.610  whisper  faster-whisper small int8 · 4,2 s · 25 Wörter · conf 0.94
 14:07:37.240  clean    11 Füllwörter raus · Sätze normalisiert
 14:07:37.980  keys     überdachung · material · bestellen
 14:07:37.984  route    #überdachung · Score 1.00 · feste Liste
 14:07:38.090  tasks    2 Aufgaben → Apple Erinnerungen (CalDAV)
 14:07:38.310  vault    ~/Obsidian/stash/Listen/überdachung.md (+1)
 14:07:38.520  render   1-bit 480×800 · 47 kB
-14:07:38.728  push     BLE → ESP32-S3 · 208 ms
+14:07:38.728  push     BLE → ESP32-S3 · 533 ms
 14:07:39.070  epd      Partial-Refresh 340 ms · Zähler 7/12
 ```
 
 > Alle Zeitwerte sind geschätzt und stehen als benannte Konstanten oben im Script, mit Kommentar.
+> Die Zahlen sind voneinander abgeleitet — Dateigröße aus der Dauer, Upload aus dem Durchsatz,
+> Whisper aus dem Echtzeitfaktor, die Wortzahl aus dem Transkript — damit sie zueinander passen.
 > Sie werden ersetzt, sobald Whisper das erste Mal echt auf dem Pi läuft.
 
 **Mindestens fünf verschiedene Demo-Aufnahmen**, die bei wiederholtem Drücken durchrotieren — jede
@@ -334,9 +343,10 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 - [ ] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
 - [ ] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
 - [ ] „Gerät aus" lässt den Inhalt stehen
-- [ ] eine Suche nach Farbwerten im File findet nur Grauwerte
+- [ ] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 6)
 - [ ] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
 - [ ] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
+- [ ] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
 
 **Hinweis an den Coding-Agent:** Wenn du fertig bist, öffne das File selbst und klick es durch.
 Dann in zwei, drei Sätzen sagen, was konkret drinsteckt — nicht „fertig" schreiben, sondern was

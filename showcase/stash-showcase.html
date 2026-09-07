@@ -81,6 +81,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #knebel button{border:1px solid var(--edge);border-radius:3px;padding:3px 9px;
                font-family:var(--mono);font-size:11px;color:var(--chalk)}
 #knebel button:hover{border-color:var(--mute)}
+#knebel .teiler{width:1px;height:15px;background:var(--edge);margin:0 3px}
+#knebel #k-rec{border-color:#4a4d53;color:var(--chalk);letter-spacing:.06em}
 #usb{width:26px;height:3px;border-radius:2px;background:#0b0c0d;box-shadow:inset 0 1px 1px #000}
 #unterbau{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
 #unterbau .knopf{padding:5px 9px;font-size:11px}
@@ -224,6 +226,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
         <div class="rad"><i></i></div>
         <button id="k-m">●</button>
         <button id="k-r">▶</button>
+        <span class="teiler"></span>
+        <button id="k-rec" title="seitliche BOOT-Taste">REC</button>
       </div>
       <div id="usb"></div>
     </div>
@@ -342,7 +346,7 @@ const KALENDER={1:[{u:'09:00',t:'Zahnarzt'}],2:[{u:'07:30',t:'Baustoffhandel, Ab
  3:[{u:'18:30',t:'Elternabend'}],4:[{u:'14:00',t:'Lieferung Holz'}],5:[{u:'10:00',t:'Sperrmüll'}]};
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',zurueck:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -377,7 +381,10 @@ const kopfleiste=()=>{const n=S.warteschlange.length;return `<div class="kopflei
  <span class="s">${IK.wlan(S.wlan)}</span>
  <span class="s mo">${IK.akku(S.akku)} ${S.akku}%</span>
  <span class="mo">${uhr(new Date())}</span></div></div>`;};
-const fuss=()=>`<div class="fuss"><span>◀ zurück</span><span>● aufnehmen</span><span>▶ weiter</span></div>`;
+const tief=()=>S.ansicht==='notiz'||S.ansicht==='detail';
+const mitte=()=>tief()?'schließen':(S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length?'Notiz öffnen'
+  :S.ansicht==='listen'?'Liste öffnen':'—';
+const fuss=()=>`<div class="fuss"><span>◀ zurück</span><span>● ${mitte()}</span><span>▶ weiter</span></div>`;
 const band=t=>`<div class="band">${t}</div>`;
 
 const V={};
@@ -664,7 +671,7 @@ function stau(){
 function stand(){
   const b=$('#b-rec');b.disabled=!S.an;
   b.firstChild.textContent=S.laeuft?'■ läuft …':'▸ Sprachnotiz aufnehmen';
-  $('#b-rec-n').textContent=S.laeuft?'Ablauf läuft':'nächste: '+AUFNAHMEN[S.naechste%AUFNAHMEN.length].kurz;
+  $('#b-rec-n').textContent=S.laeuft?'Ablauf läuft':'seitliche BOOT-Taste · nächste: '+AUFNAHMEN[S.naechste%AUFNAHMEN.length].kurz;
   $('#b-wlan').textContent=S.wlan?'WLAN aus':'WLAN an';
   $('#b-aus').textContent=S.an?'Gerät aus':'Gerät an';
   $('#brain').classList.toggle('weg',!S.wlan);
@@ -674,11 +681,23 @@ $('#navi').addEventListener('click',e=>{const b=e.target.closest('[data-ansicht]
 blatt.addEventListener('click',e=>{
   if(!S.an||S.laeuft)return;
   const r=e.target.closest('[data-roh]');if(r){S.roh=r.dataset.roh==='1';partial();return;}
-  const n=e.target.closest('[data-notiz]');if(n){S.notizNr=+n.dataset.notiz;S.ansicht='notiz';S.roh=false;partial();return;}
-  const a=e.target.closest('[data-ansicht]');if(a)wechsel(a.dataset.ansicht);
+  const n=e.target.closest('[data-notiz]');if(n){S.zurueck=S.ansicht;S.notizNr=+n.dataset.notiz;S.ansicht='notiz';S.roh=false;partial();return;}
+  const a=e.target.closest('[data-ansicht]');if(a){S.zurueck=S.ansicht;wechsel(a.dataset.ansicht);}
 });
 const rec=()=>S.laeuft?(aufnehmen.stopp&&aufnehmen.stopp()):aufnehmen();
-$('#b-rec').addEventListener('click',rec);$('#k-m').addEventListener('click',rec);
+$('#b-rec').addEventListener('click',rec);
+$('#k-rec').addEventListener('click',rec);
+$('#k-m').addEventListener('click',oeffnen);
+/* Drehknopf: links/rechts blättern, drücken öffnet oder schließt.
+   Aufnehmen liegt auf der seitlichen BOOT-Taste und ist immer erreichbar. */
+function oeffnen(){
+  if(!S.an||S.laeuft)return;
+  if(tief()){wechsel(S.zurueck||'heute');return;}
+  if((S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length){
+    S.zurueck=S.ansicht;S.notizNr=S.verarbeitet[S.verarbeitet.length-1].nr;S.roh=false;
+    S.ansicht='notiz';partial();return;}
+  if(S.ansicht==='listen'){S.zurueck='listen';S.ansicht='detail';partial();}
+}
 $('#k-l').addEventListener('click',()=>blaettern(-1));
 $('#k-r').addEventListener('click',()=>blaettern(1));
 function blaettern(d){if(!S.an||S.laeuft)return;
@@ -726,6 +745,7 @@ stufenMalen();stufe(-1);malen();stand();skalieren();
 log('sys','STASH Showcase · Simulation, keine echte Hardware');
 log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
 log('net','pi5-brain.local erreichbar · RSSI −54 dBm');
+log('sys','Bedienung: Drehknopf blättert und öffnet, BOOT nimmt auf');
 log('sys','2 Aufnahmen von heute geladen · bereit');
 </script>
 </body>
