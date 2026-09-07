@@ -221,6 +221,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
       <label>Schwelle <b id="s-sw-v">0.62</b><input type="range" id="s-sw" min="30" max="95" step="1" value="62"></label>
       <label class="zeileschalter"><input type="checkbox" id="s-lern"> Listen lernen Schlagwörter dazu</label>
       <button class="knopf haupt" id="s-run">Tag durchrechnen</button>
+      <button class="knopf" id="s-nacht" disabled>Nacht darüber laufen lassen</button>
       <div id="s-out"></div>
     </div>
   </div>
@@ -420,8 +421,27 @@ function simuliere(anzahl,tbAnteil,schwelle,lernend){
           groesste:Object.entries(ziele).sort((a,b)=>b[1]-a[1])[0]||['—',0]};
 }
 
+/* Der Nachtlauf. Tagsüber entscheidet die Regel je Notiz und sieht nur diese
+   eine. Nachts liegen alle Listen nebeneinander — ein einziges gemeinsames
+   Trigger-Wort genügt dann, um eine gestern entstandene Liste zurückzuführen. */
+function nachtlauf(L){
+  const zusammen=[];
+  Object.keys(L).forEach(neu=>{
+    if(!L[neu]||!L[neu].neu)return;
+    let ziel=null,best=0;
+    Object.keys(L).forEach(alt=>{
+      if(alt===neu||!L[alt]||L[alt].neu)return;
+      const gemeinsam=[...L[neu].trig].filter(k=>L[alt].trig.has(k)).length;
+      if(gemeinsam>best){best=gemeinsam;ziel=alt;}
+    });
+    if(ziel){L[ziel].anz+=L[neu].anz;L[neu].trig.forEach(k=>L[ziel].trig.add(k));
+      zusammen.push([neu,ziel]);delete L[neu];}
+  });
+  return zusammen;
+}
+
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',morgen:true,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -466,7 +486,7 @@ const V={};
 
 /* Was die Nachtschicht auf eine Seite schreibt. Von Hand gesetzt als
    Muster für die Zielform — hier rechnet kein Modell, der Pi tut das. */
-V.morgen=()=>`
+V.morgen=()=>S.nacht?V.morgenAusDaten():`
  <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
  <div class="regel stark"></div>
  <div class="p" style="margin-bottom:11px">An der Überdachung hängt es an den Pfosten — davon war
@@ -481,6 +501,29 @@ V.morgen=()=>`
  <div class="p">Donnerstag um halb elf kommt der Schornsteinfeger.</div>
  <div class="regel"></div>
  <div class="m">In der Nacht zusammengelegt:<br>#beton, #dachlatten, #doppelstegplatten → #überdachung</div>`;
+
+/* Aus dem Bestand gerechnet, ohne Modell — deshalb liest es sich wie eine
+   Meldung und nicht wie ein Absatz. Genau diese Lücke soll nachts der Pi füllen. */
+V.morgenAusDaten=()=>{
+  const r=S.simLauf,z=S.nacht;
+  const listen=Object.entries(S.listen).filter(([k])=>k!=='tagebuch');
+  const top=listen.sort((a,b)=>b[1].anz-a[1].anz).slice(0,3);
+  const geblieben=listen.filter(([,l])=>l.neu).map(([k])=>k);
+  return `
+ <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="regel stark"></div>
+ <div class="p" style="margin-bottom:10px">Gestern sind ${r.tb+r.rest} Aufnahmen eingegangen,
+   ${r.tb} davon gingen ins Tagebuch.</div>
+ <div class="p" style="margin-bottom:10px">Am meisten kam vor:
+   ${top.map(([k,l])=>'#'+k+' ('+l.anz+')').join(', ')}.</div>
+ ${geblieben.length?`<div class="p" style="margin-bottom:10px">Neu geblieben nach der Nacht:
+   ${geblieben.slice(0,6).map(k=>'#'+k).join(', ')}${geblieben.length>6?' und '+(geblieben.length-6)+' weitere':''}.</div>`:''}
+ <div class="p" style="margin-bottom:10px">Ohne Bewegung seit 63 Tagen: #dachrinne.</div>
+ <div class="regel"></div>
+ <div class="m">In der Nacht zusammengelegt: <b>${z.length}</b> Listen.<br>
+   ${z.slice(0,4).map(([a,b])=>'#'+a+' → #'+b).join('<br>')}${z.length>4?'<br>… und '+(z.length-4)+' weitere':''}</div>
+ <div class="m" style="margin-top:8px">Listen: ${r.nachher} vor der Nacht, ${Object.keys(S.listen).length} danach.</div>`;
+};
 
 V.uebersicht=()=>{
  const na=[];for(let d=0;d<7&&na.length<4;d++){const t=new Date(HEUTE);t.setDate(HEUTE.getDate()+d);
@@ -826,7 +869,8 @@ $('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
   Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
    verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
    listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
-   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,morgen:true});
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,morgen:true});
+  $('#s-nacht').disabled=true;
   heuteForm(true);
   $('#s-out').innerHTML='';
   nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','zurückgesetzt');});
@@ -855,7 +899,21 @@ $('#s-run').addEventListener('click',()=>{
     Object.entries(r.hist).sort().map(([k,v])=>`<div>&nbsp;&nbsp;${k.replace('.',',')} · ${v}×${+k>=sw?' <b>trifft</b>':''}</div>`).join('')+
     `<div style="margin-top:4px">Bei drei Schlagwörtern gibt es nur 0 · 0,33 · 0,67 · 1,00 — dazwischen ändert die Schwelle nichts.</div>`+
     (r.neu>r.rest*0.4?`<div class="warn" style="margin-top:5px">Mehr als jede dritte Aufnahme legt eine neue Liste an.</div>`:'');
+  S.nacht=null;$('#s-nacht').disabled=false;
   log('sim',an+' Aufnahmen · Schwelle '+(sw).toFixed(2)+(le?' · lernend':'')+' → '+r.nachher+' Listen, '+r.neu+' neu');
+  partial();
+});
+
+$('#s-nacht').addEventListener('click',()=>{
+  if(!S.simLauf||S.laeuft)return;
+  const vor=Object.keys(S.listen).length;
+  S.nacht=nachtlauf(S.listen);
+  const nach=Object.keys(S.listen).length;
+  $('#s-out').innerHTML+=`<div style="margin-top:6px"><b>Nachtlauf</b></div>`+
+    `<div>Listen <b>${vor}</b> → <b>${nach}</b> · ${S.nacht.length} zusammengelegt</div>`;
+  log('nacht',vor+' → '+nach+' Listen · '+S.nacht.length+' zusammengelegt');
+  S.ansicht='heute';S.morgen=true;
+  $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
   partial();
 });
 
