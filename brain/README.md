@@ -101,27 +101,26 @@ cp beispiel.toml ~/.config/stash/stash.toml
 nano ~/.config/stash/stash.toml
 ```
 
-Die Datei ist kurz und jede Zeile darin ist eine Entscheidung:
+Die Datei ist kurz und jede Zeile darin ist eine Entscheidung. Vollständig — mehr Schalter gibt es
+nicht, und was hier nicht steht, gilt in der Vorgabe:
 
-```toml
-[vault]
-pfad = "/home/pi/Obsidian/stash"     # wohin die Markdown-Dateien geschrieben werden
-
-[whisper]
-modell     = "small"                 # tiny · base · small · medium
-rechentyp  = "int8"                  # int8 ist auf dem Pi 5 die brauchbare Wahl
-sprache    = "de"
-
-[llm]
-# Für den Nachtlauf. Jeder Server, der die OpenAI-Schnittstelle spricht:
-# llama.cpp --server, Ollama, vLLM. Nur nachts belastet, nicht im Tagbetrieb.
-endpunkt = "http://localhost:11434/v1"
-modell   = "google/gemma-4-e2b"
-
-[einsortieren]
-schwelle       = 0.62                # darunter entsteht eine neue Liste
-archiv_ab_tage = 60                  # ab wann eine stille Liste ihre Archivierung anbietet
-```
+| Schlüssel | Vorgabe | Was er entscheidet |
+|---|---|---|
+| `vault.pfad` | `~/Obsidian/stash` | Wohin die Markdown-Dateien geschrieben werden. |
+| `whisper.modell` | `small` | `tiny` · `base` · `small` · `medium`. Reicht `small` nicht, ist `base` der Schritt nach unten — nicht `medium` nach oben. |
+| `whisper.rechentyp` | `int8` | Auf dem Pi 5 die einzig brauchbare Wahl. Mit `float32` rechnet er minutenlang. |
+| `whisper.sprache` | `de` | Feste Sprache statt Erkennung: Das spart eine Runde und verhindert, dass ein genuscheltes „ähm" als Englisch durchgeht. |
+| `llm.endpunkt` | `http://localhost:11434/v1` | Nur für den Nachtlauf. Jeder Server mit OpenAI-Schnittstelle: llama.cpp `--server`, Ollama, vLLM. |
+| `llm.modell` | `google/gemma-4-e2b` | Der Modellname, den dein Server erwartet. |
+| `llm.zeitlimit_s` | `900` | Wie lange eine einzelne Anfrage dauern darf. Großzügig, weil nachts niemand wartet — und weil ein Abbruch bei Minute vier den Morgen kostet. |
+| `einsortieren.schwelle` | `0.62` | Darunter entsteht eine neue Liste. |
+| `einsortieren.archiv_ab_tage` | `60` | Ab wann eine stille Liste ihre Archivierung anbietet. |
+| `audio.aufbewahrung_tage` | `30` | Danach wird die WAV gelöscht, das Transkript bleibt. |
+| `server.adresse` | `0.0.0.0` | Auf welchen Netzwerkkarten gehört wird. `127.0.0.1` sperrt das Gerät aus. |
+| `server.port` | `8080` | Muss mit `STASH_BRAIN_PORT` in der Firmware übereinstimmen. |
+| `caldav.url` | leer | Leer heißt: kein Kalender, kein Fehler. Siehe unten. |
+| `caldav.benutzer` | leer | Bei Apple die Apple-ID. |
+| `caldav.passwort` | leer | Bei Apple ein **app-spezifisches Passwort**, nicht das Kontopasswort. |
 
 **Zur Schwelle 0.62:** Sie entscheidet, ob eine Notiz in eine bestehende Liste wandert oder eine
 neue anlegt. Höher heißt mehr neue Listen, niedriger heißt, dass Fremdes zusammengeworfen wird.
@@ -141,6 +140,24 @@ curl -s http://localhost:11434/v1/models
 Kommt nichts zurück, läuft der Nachtlauf trotzdem: Er legt dann Listen mit gemeinsamen
 Trigger-Wörtern zusammen und verdichtet nicht. Das ist die Hälfte des Nutzens, aber es fällt
 nichts aus.
+
+### Kalender und Erinnerungen (optional)
+
+Bleibt `caldav.url` leer, passiert nichts — STASH läuft ohne. Ein Dienst, der ohne Cloud-Zugang
+nicht startet, wäre das Gegenteil von „es bleibt im Haus".
+
+Für Apple:
+
+```toml
+[caldav]
+url      = "https://caldav.icloud.com"
+benutzer = "deine@apple-id.de"
+passwort = "abcd-efgh-ijkl-mnop"     # appleid.apple.com → app-spezifisches Passwort
+```
+
+Gelesen wird die laufende Woche für die Kalenderansicht. Geschrieben werden erkannte Aufgaben als
+Erinnerung. Der Schreibweg ist angelegt, aber nicht gegen einen echten Apple-Account geprüft —
+wenn er klemmt, steht der Grund in `journalctl -u stash-brain`, und der Rest läuft weiter.
 
 ---
 
@@ -217,13 +234,56 @@ gut aussieht, sieht es auf dem Gerät gut aus.
 
 ## Die Schnittstelle
 
+Das ist die einzige Stelle, an der Gerät und Brain aneinanderhängen. Wer einen der beiden Teile
+anfasst, muss diese Tabelle kennen.
+
 | Weg | Was |
 |---|---|
 | `POST /v1/notiz` | WAV rein, verarbeitete Notiz zurück |
-| `GET /v1/bild?ansicht=…` | Panelbild, 480 × 800, 1 Bit, 48000 Byte |
-| `GET /v1/zustand` | Akku, Warteschlange, Listenzähler — was in die Statusleiste gehört |
+| `GET /v1/bild` | Panelbild, 480 × 800, 1 Bit, 48000 Byte |
+| `GET /v1/zustand` | Akku, Warteschlange, Listenzähler — als JSON, zum Nachsehen |
 | `POST /v1/bedienung` | Drehknopf: `zurueck` · `oeffnen` · `weiter` |
 | `POST /v1/nachtlauf` | Nachtlauf sofort auslösen, statt auf 03:00 zu warten |
+
+**`POST /v1/notiz`** nimmt eine `multipart/form-data`-Anfrage mit dem Feld **`datei`** entgegen,
+Inhalt eine WAV, 16 kHz mono 16 Bit. Der Dienst antwortet erst, wenn die Aufnahme im Vault steht —
+und das Gerät löscht sie erst nach einer 200er-Antwort von der Karte. Ginge es andersherum, wäre
+eine Notiz weg, weil das WLAN im falschen Moment gewackelt hat.
+
+**`GET /v1/bild`** kennt vier Parameter:
+
+| Parameter | Wer setzt ihn | Wofür |
+|---|---|---|
+| `ansicht` | Werkbank / Neugier | Eine bestimmte der acht Ansichten rendern, statt der aktuellen. |
+| `format=png` | Mensch | PNG statt Bitstrom — dasselbe Bild, nur ansehbar. |
+| `wartend` | Gerät | Wie viele Aufnahmen noch auf der Karte liegen. |
+| `sd_mb` | Gerät | Wie voll die Karte ist. |
+
+`wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
+
+**Der ETag ist der Kern des Ganzen.** Jede Antwort trägt einen `ETag` über den Bildinhalt. Das
+Gerät schickt ihn beim nächsten Mal als `If-None-Match` mit und bekommt `304 Not Modified`, wenn
+sich nichts geändert hat. Dann zeichnet es nicht.
+
+Das ist keine Optimierung, sondern der Grund, warum das Gerät regelmäßig fragen darf: Jeder
+überflüssige Refresh kostet Strom und hinterlässt Geisterbild. Ein Gerät, das jede Minute stur neu
+zeichnet, müsste man ständig laden und hätte trotzdem ein schlechteres Bild.
+
+```
+Gerät                                  Brain
+  │  GET /v1/bild?wartend=3&sd_mb=412    │
+  │─────────────────────────────────────►│
+  │  200 · 48000 Byte · ETag "8e2abf…"   │
+  │◄─────────────────────────────────────│   → zeichnen
+  │                                      │
+  │  GET … · If-None-Match: "8e2abf…"    │
+  │─────────────────────────────────────►│
+  │  304 · leer                          │
+  │◄─────────────────────────────────────│   → nichts tun
+```
+
+Die 48000 Byte sind 1 Bit je Pixel, zeilenweise, 60 Byte je Zeile, `0` = schwarz — genau das
+Format, das der Panel-Controller erwartet. Es wird nichts umgerechnet.
 
 Der Dienst hört auf dem Heimnetz und hat **keine Anmeldung**. Das ist Absicht und zugleich die
 Bedingung: Er gehört nicht ins Internet. Kein Port-Forwarding, keine Freigabe im Router. Wer von
@@ -278,3 +338,34 @@ sudo systemctl stop stash-brain
 rm ~/Obsidian/stash/.stash/listen.json
 sudo systemctl start stash-brain
 ```
+
+---
+
+## Wo was steht
+
+Jede Datei sagt oben selbst, wofür sie da ist. Diese Karte sagt, welche man aufmacht:
+
+| Datei | Zuständig für |
+|---|---|
+| `einstellungen.py` | Die Konfiguration oben. Vorgaben stehen hier, nicht in der TOML. |
+| `transkript.py` | faster-whisper. Modell wird einmal geladen und bleibt im Speicher. |
+| `aufraeumen.py` | Füllwörter raus, Sätze normalisieren. Regelbasiert, ohne Modell. |
+| `schlagworte.py` | Die drei Wörter, an denen einsortiert wird. |
+| `einsortieren.py` | Die Regel mit der Schwelle. Wohin die Notiz gehört, ohne Rückfrage. |
+| `vault.py` | Markdown schreiben und den Listenindex führen. |
+| `rendern.py` | Zeichenwerkzeug fürs Panel: Linien, Raster, Umbruch, Schriften. |
+| `seiten.py` | Die acht Ansichten. Hier ändert man, was auf einer Seite steht. |
+| `zustand.py` | Was gerade gezeigt wird und was der Drehknopf daraus macht. |
+| `llm.py` | Der Draht zum Sprachmodell, samt der Aufträge, die es bekommt. |
+| `nachtlauf.py` | Zusammenlegen, umbenennen, verdichten, verblassen lassen. |
+| `server.py` | Die Schnittstelle oben. Bindet alles zusammen. |
+| `caldav_sync.py` | Kalender lesen, Erinnerungen schreiben. Optional. |
+
+Zwei Dinge lohnen sich zu wissen, bevor man etwas ändert:
+
+- **Der Vault ist die Wahrheit, nicht `listen.json`.** Der Index unter `.stash/` ist jederzeit
+  wegwerfbar — die Einträge einer Liste liest `server.py` aus dem Markdown selbst, damit beides
+  nicht auseinanderlaufen kann.
+- **Die Schwelle 0.62 darf grob sein.** Sie tagsüber „richtig" einzustellen ist aussichtslos: Bei
+  drei Schlagwörtern gibt es nur 0 · 0,33 · 0,67 · 1,00, dazwischen ändert sie nichts. Dafür gibt
+  es den Nachtlauf.

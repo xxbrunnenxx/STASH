@@ -142,6 +142,35 @@ steht die Datei auf der Karte — nachprüfbar, indem man die Karte in den Rechn
 
 ---
 
+## Was über die Leitung geht
+
+Ein Weg, zwei Richtungen, beides HTTP:
+
+| Wann | Was |
+|---|---|
+| Nach jeder Aufnahme | `POST /v1/notiz`, `multipart/form-data`, Feld `datei`, Inhalt die WAV. Gelöscht wird von der Karte **erst nach einer 200er-Antwort** — sonst wäre eine Notiz weg, weil das WLAN gewackelt hat. |
+| Alle 30 s und nach jedem Tastendruck | `GET /v1/bild?wartend=…&sd_mb=…` mit `If-None-Match`. Kommt `304`, wird nicht gezeichnet. |
+| Bei Drehknopf | `POST /v1/bedienung`, `{"taste":"zurueck"\|"oeffnen"\|"weiter"}`. |
+
+Der ETag ist nicht Feinschliff, sondern der Grund, warum das Gerät überhaupt regelmäßig fragen
+darf: Jeder überflüssige Refresh kostet Strom und hinterlässt Geisterbild. Die vollständige
+Beschreibung steht in [brain/README.md](../brain/README.md#die-schnittstelle).
+
+## Wo was steht
+
+| Datei | Zuständig für |
+|---|---|
+| `stash_main.c` | Der Ablauf: Tasten lesen, aufnehmen, Netz-Task anstoßen. |
+| `board.h` / `board.c` | Maße, Grenzen, und die Prüfung, ob alle Pins gesetzt sind. |
+| `audio.c` | ES8311 und I2S, WAV-Kopf, Pegel für die Wellenform. |
+| `sdkarte.c` | Die Warteschlange auf FAT32. Namen sind aufsteigend, damit alphabetisch = zeitlich. |
+| `netz.c` | WLAN, mDNS, Upload, Bild holen, Tastendruck melden. |
+| `panel.c` | Bildpuffer, Refresh-Strategie, Geisterbild-Zähler, Aufnahme-Overlay. |
+| `panel_treiber.c` | SPI, Reset, BUSY — alles, was **nicht** vom Controller-Typ abhängt. |
+| `epd_sequenz.h` | Was vom Controller-Typ abhängt. Die eine Datei, die du füllen musst. |
+| `bedienung.c` | Vier Taster, Entprellen, Aufwachen aus dem Light-Sleep. |
+| `Kconfig.projbuild` | Alle 29 Einstellungen, die `idf.py menuconfig` zeigt. |
+
 ## Stromverbrauch
 
 Zwischen zwei Bedienungen geht der Chip in Light-Sleep und wacht bei Tastendruck oder alle 60 s
