@@ -976,12 +976,14 @@ V.warteschlange=()=>{
      <span class="t u">${esc(a.kurz)}</span><span class="re">${kf(a.dauer)} s</span>
      <span class="re m" style="width:66px;text-align:right">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}
    ${S.warteschlange.length>9?`<div class="m" style="margin-top:5px">… und ${S.warteschlange.length-9} weitere auf der Karte</div>`:''}`:''}
+ ${!S.eingerichtet&&!S.warteschlange.length?`<div class="regel"></div>
+   <div class="m">Karte leer · 29,8 GB frei · FAT32</div>`:`
  <div class="regel"></div>
  ${band('SD-Karte')}
  <div class="meter" style="margin:4px 0 6px"><i style="width:${pct}%"></i></div>
  <div class="z"><span class="t m">belegt</span><span class="re">${(S.sdMb/1000).toFixed(1).replace('.',',')} von 29,8 GB</span></div>
  <div class="z"><span class="t m">Restreichweite</span><span class="re">${kf(std)} h Aufnahme</span></div>
- <div class="z"><span class="t m">Format</span><span class="re">FAT32</span></div>`;
+ <div class="z"><span class="t m">Format</span><span class="re">FAT32</span></div>`}`;
 };
 function minSeit(t){const m=Math.max(0,Math.round((Date.now()-t)/60000));
   if(m<1)return 'unter 1 min';
@@ -1038,7 +1040,7 @@ function messwerte(){
 function navi(){$('#navi').innerHTML=ANSICHTEN.map(a=>{let z='';
   if(a.id==='eingang')z=(S.eingangN!=null?S.eingangN:S.verarbeitet.length)||'';
   if(a.id==='warteschlange')z=S.warteschlange.length||'';
-  if(a.id==='tagebuch')z=S.tagebuchN||S.tagebuch.length;
+  if(a.id==='tagebuch')z=(S.tagebuchN||S.tagebuch.length)||'';
   return `<button data-ansicht="${a.id}" class="${S.ansicht===a.id?'an':''}"><span>${esc(a.t)}</span><span class="z">${z}</span></button>`;}).join('');}
 
 /* ── Pipeline ───────────────────────────────────────────────────────────── */
