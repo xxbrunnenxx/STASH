@@ -93,6 +93,11 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #knebel .teiler{width:1px;height:15px;background:var(--edge);margin:0 3px}
 #knebel #k-rec{border-color:#4a4d53;color:var(--chalk);letter-spacing:.06em}
 #usb{width:26px;height:3px;border-radius:2px;background:#0b0c0d;box-shadow:inset 0 1px 1px #000}
+#ablauf{display:flex;align-items:center;gap:0;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+#ablauf .titel{font-size:11px;color:var(--mute);padding:0 11px 0 12px}
+#ablauf button{padding:7px 13px;font-size:12px;color:var(--mute);border-left:1px solid var(--edge);background:var(--void)}
+#ablauf button:hover{color:var(--chalk)}
+#ablauf button.an{background:var(--edge);color:var(--chalk);font-weight:500}
 #unterbau{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
 #unterbau .knopf{padding:5px 9px;font-size:11px}
 
@@ -250,6 +255,13 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
         <button id="k-rec" title="seitliche BOOT-Taste">REC</button>
       </div>
       <div id="usb"></div>
+    </div>
+    <div id="ablauf">
+      <span class="titel">Ein Tag</span>
+      <button data-phase="0">unterwegs</button>
+      <button data-phase="1">heimgekommen</button>
+      <button data-phase="2">Nacht</button>
+      <button data-phase="3">Morgen</button>
     </div>
     <div id="unterbau">
       <button class="knopf" id="b-voll">Vollrefresh</button>
@@ -490,7 +502,7 @@ function nachtlauf(L){
 }
 
 /* Zustand — nur JS-Variablen, nichts wird gespeichert. */
-const S={ansicht:'heute',abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
+const S={ansicht:'heute',phase:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:true,an:true,serif:true,laeuft:false,
   partial:0,naechste:0,verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY};
@@ -735,9 +747,10 @@ V.warteschlange=()=>{
   :`<div class="rahmen stark"><div class="u">Nächster Versuch in ${S.retry} s</div>
     <div class="m" style="margin-top:2px">Aufnahmen bleiben auf der SD-Karte, bis der Pi wieder erreichbar ist.</div></div>`}
  ${S.warteschlange.length?`<div class="regel"></div>${band(S.warteschlange.length+' Aufnahmen · '+Math.round(ges/1000)+' kB')}
-   ${S.warteschlange.map((a,i)=>`<div class="z"><span class="uhr">${a.uhr}</span>
+   ${S.warteschlange.slice(0,9).map((a,i)=>`<div class="z"><span class="uhr">${a.uhr}</span>
      <span class="t u">${esc(a.kurz)}</span><span class="re">${kf(a.dauer)} s</span>
-     <span class="re m" style="width:66px;text-align:right">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}`:''}
+     <span class="re m" style="width:66px;text-align:right">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}
+   ${S.warteschlange.length>9?`<div class="m" style="margin-top:5px">… und ${S.warteschlange.length-9} weitere auf der Karte</div>`:''}`:''}
  <div class="regel"></div>
  ${band('SD-Karte')}
  <div class="meter" style="margin:4px 0 6px"><i style="width:${pct}%"></i></div>
@@ -745,7 +758,10 @@ V.warteschlange=()=>{
  <div class="z"><span class="t m">Restreichweite</span><span class="re">${kf(std)} h Aufnahme</span></div>
  <div class="z"><span class="t m">Format</span><span class="re">FAT32</span></div>`;
 };
-function minSeit(t){const m=Math.max(0,Math.round((Date.now()-t)/60000));return m<1?'unter 1 min':m+' min';}
+function minSeit(t){const m=Math.max(0,Math.round((Date.now()-t)/60000));
+  if(m<1)return 'unter 1 min';
+  if(m<90)return m+' min';
+  return kf(m/60)+' Stunden';}
 
 /* ── Panel: malen, Refresh, Geisterbild ─────────────────────────────────── */
 const blatt=$('#blatt'),scr=$('#screen'),geist=$('#geist'),wisch=$('#wisch');
@@ -976,6 +992,49 @@ $('#s-run').addEventListener('click',()=>{
   partial();
 });
 
+/* Vier Zustände eines Tages, durchklickbar. */
+function phase(n){
+  if(S.laeuft)return;
+  S.phase=n;
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===n));
+  if(n===0){
+    S.wlan=false;S.offlineSeit=Date.now()-7*3600e3;S.retry=T.RETRY;
+    S.abend=null;S.nacht=null;S.simLauf=null;S.listen=JSON.parse(JSON.stringify(LISTEN));
+    S.warteschlange=Array.from({length:200},(_,i)=>({
+      nr:-100-i,kurz:['Überdachung','Heide Park','KI-Ärger','Tagebuch'][i%4],
+      uhr:zw(7+Math.floor(i/14))+':'+zw((i*7)%60),dauer:14,schlag:[],aufg:[],rein:'',roh:''}));
+    S.sdMb=412+Math.round(200*bytes(14)/1e6);
+    S.ansicht='warteschlange';
+    log('net','WLAN getrennt · unterwegs seit 7 Stunden');
+  }
+  if(n===1){
+    S.wlan=true;S.warteschlange=[];S.offlineSeit=null;
+    const a=tagUnterwegs();
+    S.listen=a.L;S.abend=a;S.nacht=null;
+    S.simLauf={tb:a.tb,rest:a.rest,nachher:Object.keys(a.L).length};
+    S.ansicht='heute';
+    log('net','zu Hause · Warteschlange 200 Aufnahmen · Aufholen '+a.minuten+' min');
+    log('route','vorläufig einsortiert · '+a.neu.length+' Listen neu');
+    $('#s-out').innerHTML=`<div><b>200</b> Aufnahmen · Aufholen <b>${a.minuten} min</b></div>`+
+      `<div>Listen ${Object.keys(LISTEN).length} → <b>${Object.keys(a.L).length}</b></div>`;
+  }
+  if(n===2){
+    if(!S.abend){phase(1);S.phase=2;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===2));}
+    const vor=Object.keys(S.listen).length;
+    S.nacht=nachtlauf(S.listen);
+    log('nacht',vor+' → '+Object.keys(S.listen).length+' Listen · '+S.nacht.length+' zusammengelegt');
+    S.ansicht='listen';
+    $('#s-out').innerHTML+=`<div style="margin-top:5px"><b>Nacht</b>: ${vor} → ${Object.keys(S.listen).length} Listen</div>`;
+  }
+  if(n===3){
+    if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
+    S.abend=null;S.morgen=true;S.ansicht='heute';
+    $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
+  }
+  stand();partial();
+}
+document.querySelectorAll('#ablauf button').forEach(b=>b.addEventListener('click',()=>phase(+b.dataset.phase)));
+
 $('#s-tag').addEventListener('click',()=>{
   if(S.laeuft)return;
   const a=tagUnterwegs();
@@ -1006,7 +1065,7 @@ $('#s-nacht').addEventListener('click',()=>{
 
 function skalieren(){
   const s=window.innerWidth<=900;
-  const h=(s?window.innerHeight*0.66:$('#mitte').clientHeight)-150;
+  const h=(s?window.innerHeight*0.62:$('#mitte').clientHeight)-198;  // Knebel, Ablaufleiste, Unterbau
   const w=(s?window.innerWidth:$('#mitte').clientWidth)-36;
   const k=Math.max(0.30,Math.min(1,h/800,w/480));
   $('#rahmen').style.transform='scale('+k+')';
