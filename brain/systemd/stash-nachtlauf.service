@@ -1,0 +1,16 @@
+[Unit]
+Description=STASH Nachtlauf — zusammenlegen, verdichten, verblassen lassen
+Documentation=https://github.com/xxbrunnenxx/stash
+
+[Service]
+Type=oneshot
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/stash/brain
+ExecStart=/home/pi/stash/brain/.venv/bin/stash-nachtlauf
+
+ProtectSystem=strict
+ReadWritePaths=/home/pi/Obsidian
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes

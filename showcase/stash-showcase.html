@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STASH Showcase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<style>
+:root{
+  --void:#0A0A0B; --shell:#17181A; --edge:#2A2C30;
+  --mute:#6E7278; --chalk:#D9DBDD; --paper:#F4F4F2; --ink:#14161A;
+  --serif:'Literata','Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+
+  /* Tonwerte auf dem Papier entstehen nur als Punktraster, nie als Fläche. */
+  --t12:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%2314161A'/%3E%3C/svg%3E");
+  --t25:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='%2314161A'/%3E%3C/svg%3E");
+  --t50:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='%2314161A'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%2314161A'/%3E%3C/svg%3E");
+  --m12:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+  --m25:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+  --m6:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--void);color:var(--chalk);font-family:var(--sans);font-size:13px;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+
+#app{height:100%;display:grid;grid-template-columns:196px 1fr 330px;
+     grid-template-rows:38px 1fr;grid-template-areas:"k k k" "l m r"}
+#kopf{grid-area:k;display:flex;align-items:center;justify-content:space-between;
+      padding:0 14px;border-bottom:1px solid var(--edge);background:var(--shell)}
+#kopf b{font-weight:600;letter-spacing:.02em}
+#kopf span{color:var(--mute);font-weight:400}
+#kopf .st{font-family:var(--mono);font-size:11px;color:var(--mute);display:flex;align-items:center;gap:7px}
+#kopf .led{width:6px;height:6px;border-radius:50%;background:var(--chalk)}
+#kopf .st.weg .led{background:var(--mute)}
+#links{grid-area:l;background:var(--shell);border-right:1px solid var(--edge);overflow-y:auto;min-width:0}
+#mitte{grid-area:m;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px 0;overflow:hidden;min-width:0}
+#rechts{grid-area:r;background:var(--shell);border-left:1px solid var(--edge);display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.rubrik{font-size:11px;color:var(--mute);padding:12px 14px 5px}
+.navi{display:flex;flex-direction:column}
+.navi button{text-align:left;padding:6px 14px;display:flex;justify-content:space-between;
+             gap:8px;border-left:2px solid transparent;color:var(--chalk)}
+.navi button:hover{background:var(--void)}
+.navi button.an{border-left-color:var(--chalk);background:var(--void);font-weight:500}
+.navi .z{font-family:var(--mono);font-size:10px;color:var(--mute)}
+.werkzeuge{padding:8px 14px 16px;display:flex;flex-direction:column;gap:7px}
+.knopf{border:1px solid var(--edge);border-radius:3px;padding:7px 10px;text-align:left;
+       font-size:12px;background:var(--void);color:var(--chalk)}
+.knopf:hover{border-color:var(--mute)}
+.knopf:disabled{opacity:.4;cursor:default}
+.knopf.haupt{border-color:var(--mute);font-weight:500}
+.knopf i{display:block;color:var(--mute);font-size:11px;font-style:normal;font-weight:400}
+.schalter{display:flex;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+.schalter button{flex:1;padding:6px 4px;font-size:11px;color:var(--mute);background:var(--void)}
+.schalter button.an{background:var(--edge);color:var(--chalk)}
+.sim{padding:2px 14px 18px;display:flex;flex-direction:column;gap:9px}
+.sim label{display:block;font-size:11.5px;color:var(--mute)}
+.sim label b{float:right;font-family:var(--mono);font-size:11px;color:var(--chalk);font-weight:400}
+.sim input[type=range]{width:100%;margin-top:4px;accent-color:#8b9096;height:14px}
+.sim .zeileschalter{display:flex;align-items:center;gap:6px;color:var(--mute)}
+.sim .zeileschalter input{accent-color:#8b9096}
+#s-out{font-family:var(--mono);font-size:10px;line-height:1.65;color:var(--mute)}
+#s-out b{color:var(--chalk);font-weight:500}
+#s-out .warn{color:var(--chalk)}
+
+/* ── Gerät ─────────────────────────────────────────────────────────────── */
+#geraet{background:linear-gradient(180deg,#1d1e21,#141517);border:1px solid #34363b;
+        border-radius:14px;padding:16px 16px 10px;box-shadow:0 22px 50px rgba(0,0,0,.6),
+        inset 0 1px 0 rgba(255,255,255,.05);display:flex;flex-direction:column;align-items:center;gap:11px}
+#buehne{position:relative;overflow:hidden;border:1px solid #000;background:#000}
+#rahmen{transform-origin:top left;position:absolute;top:0;left:0}
+#screen{width:480px;height:800px;position:relative;overflow:hidden;
+        background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px}
+#screen.inv{filter:invert(1)}
+#geist{position:absolute;inset:0;pointer-events:none;overflow:hidden;display:none;z-index:1;
+       -webkit-mask-image:var(--m6);mask-image:var(--m6);-webkit-mask-repeat:repeat;mask-repeat:repeat;
+       -webkit-user-select:none;user-select:none}
+#geist.s2{-webkit-mask-image:var(--m12);mask-image:var(--m12)}
+#blatt{position:absolute;inset:0;z-index:2}
+#wisch{position:absolute;inset:0;pointer-events:none;display:none;z-index:3;background-image:var(--t50)}
+#wisch.f{background-image:var(--t25)}
+#knebel{display:flex;align-items:center;gap:10px;color:var(--mute);font-family:var(--mono);font-size:11px}
+#knebel .rad{width:26px;height:26px;border:1px solid #3a3c41;border-radius:50%;
+             background:radial-gradient(circle at 50% 35%,#26282c,#131417);display:grid;place-items:center}
+#knebel .rad i{width:4px;height:4px;border-radius:50%;background:var(--mute)}
+#knebel button{border:1px solid var(--edge);border-radius:3px;padding:3px 9px;
+               font-family:var(--mono);font-size:11px;color:var(--chalk)}
+#knebel button:hover{border-color:var(--mute)}
+#knebel .teiler{width:1px;height:15px;background:var(--edge);margin:0 3px}
+#knebel #k-rec{border-color:#4a4d53;color:var(--chalk);letter-spacing:.06em}
+#usb{width:26px;height:3px;border-radius:2px;background:#0b0c0d;box-shadow:inset 0 1px 1px #000}
+#ablauf{display:flex;align-items:center;gap:0;border:1px solid var(--edge);border-radius:3px;overflow:hidden}
+#ablauf .titel{font-size:11px;color:var(--mute);padding:0 11px 0 12px}
+#ablauf button{padding:7px 13px;font-size:12px;color:var(--mute);border-left:1px solid var(--edge);background:var(--void)}
+#ablauf button:hover{color:var(--chalk)}
+#ablauf button.an{background:var(--edge);color:var(--chalk);font-weight:500}
+#unterbau{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+#unterbau .knopf{padding:5px 9px;font-size:11px}
+
+/* ── Rechte Spalte ─────────────────────────────────────────────────────── */
+#log{flex:1 1 auto;min-height:110px;overflow:auto;padding:0 12px 10px;
+     font-family:var(--mono);font-size:10px;line-height:1.7;color:var(--mute)}
+#log div{white-space:pre-wrap;padding-left:23ch;text-indent:-23ch}
+#log b{color:var(--chalk);font-weight:500}
+#stufen,#hardware{border-top:1px solid var(--edge);padding:0 12px 11px}
+.stufe{display:flex;align-items:center;gap:8px;padding:1px 0;font-size:11.5px;color:var(--mute)}
+.stufe .p{width:7px;height:7px;border:1px solid var(--edge);flex:none}
+.stufe.an{color:var(--chalk)}
+.stufe.an .p{background:var(--chalk);border-color:var(--chalk)}
+.stufe.ok .p{background:var(--mute);border-color:var(--mute)}
+.mw{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;padding:2px 0}
+.mw span:first-child{color:var(--mute)}
+.mw.w span:last-child{color:var(--chalk);font-weight:500}
+
+/* ══ Auf dem Papier ═══════════════════════════════════════════════════════
+   Nur --paper und --ink. Keine Rundung, kein Schatten, kein Verlauf.
+   Alles, was grau wirkt, ist ein Punktraster. */
+
+.kopfleiste{height:30px;border-bottom:1px solid var(--ink);display:flex;align-items:center;
+            justify-content:space-between;padding:0 14px;font-size:11px;letter-spacing:.04em}
+.kopfleiste .r{display:flex;align-items:center;gap:11px}
+.kopfleiste .s{display:flex;align-items:center;gap:4px}
+.kopfleiste svg{display:block}
+.fuss{position:absolute;left:0;right:0;bottom:0;height:34px;border-top:1px solid var(--ink);
+      display:flex;align-items:center;justify-content:space-around;font-size:12px}
+.inhalt{position:absolute;top:30px;bottom:34px;left:0;right:0;overflow:hidden;padding:15px 18px}
+#screen.aus .kopfleiste,#screen.aus .fuss{display:none}
+#screen.aus .inhalt{top:0;bottom:0}
+.ausnote{position:absolute;left:0;right:0;bottom:0;padding:7px 18px;border-top:1px solid var(--ink);
+         font-size:11px;display:flex;justify-content:space-between}
+
+/* Schriftstufen — Literata liest, Plex Sans bedient, Plex Mono meldet Maschine */
+.d1{font-family:var(--serif);font-size:31px;line-height:1.05;font-weight:600;letter-spacing:-.01em}
+.d2{font-family:var(--serif);font-size:20px;line-height:1.2;font-weight:600}
+.p{font-family:var(--serif);font-size:15px;line-height:1.52}
+.u{font-size:14px;line-height:1.35}
+.m{font-size:11.5px;line-height:1.35}
+.mo{font-family:var(--mono);font-size:11px}
+.kursiv{font-style:italic}
+
+.regel{height:1px;background:var(--ink);margin:11px 0}
+.regel.stark{height:2px}
+.regel.eng{margin:7px 0}
+
+/* Rasterband: die einzige Flächenwirkung, die es auf dem Papier gibt */
+.band{background-image:var(--t12);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);
+      padding:3px 8px;margin:0 -8px 8px;font-size:11.5px;font-style:italic}
+.raster{background-image:var(--t25)}
+.verblasst{-webkit-mask-image:var(--m25);mask-image:var(--m25);
+           -webkit-mask-repeat:repeat;mask-repeat:repeat}
+
+.z{display:flex;gap:10px;align-items:baseline;padding:2px 0}
+.z .t{flex:1;min-width:0}
+.z .uhr{font-family:var(--mono);font-size:11px;flex:none;width:40px}
+.z .re{flex:none;font-family:var(--mono);font-size:11px}
+.trunk{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.chip{font-family:var(--mono);font-size:10px;border:1px solid var(--ink);
+      padding:0 4px;margin-right:4px;display:inline-block;line-height:15px}
+.rahmen{border:1px solid var(--ink);padding:9px 10px}
+.rahmen.stark{border-width:2px}
+.invers{background:var(--ink);color:var(--paper)}
+.invers .chip{border-color:var(--paper)}
+
+/* Messbalken: Füllung als Raster, Rahmen als Linie */
+.meter{height:9px;border:1px solid var(--ink);position:relative;overflow:hidden}
+.meter i{position:absolute;left:0;top:0;bottom:0;background-image:var(--t50);display:block}
+.meter.voll i{background-image:none;background:var(--ink)}
+
+.welle{display:flex;align-items:flex-end;gap:2px;height:70px}
+.welle i{width:4px;background:var(--ink);display:block}
+.klick{cursor:pointer}
+
+#aufnahme{position:absolute;inset:0;background:var(--paper);display:none;flex-direction:column;
+          align-items:center;justify-content:center;gap:20px;z-index:4}
+#aufnahme.an{display:flex}
+#aufnahme .zeit{font-family:var(--mono);font-size:46px}
+#aufnahme .w{font-size:11.5px;letter-spacing:.07em}
+#aufnahme .linie{width:360px;height:2px;background:var(--ink)}
+
+@media (max-width:1100px){
+  #app{grid-template-columns:196px 1fr;grid-template-rows:38px 1fr auto;
+       grid-template-areas:"k k" "l m" "r r"}
+  #rechts{border-left:none;border-top:1px solid var(--edge);max-height:220px}
+}
+@media (max-width:900px){
+  html,body{height:auto}body{overflow:auto}
+  #app,#links,#rechts,#mitte{min-width:0}
+  #app{height:auto;min-height:100%;grid-template-columns:1fr;
+       grid-template-rows:38px auto auto auto;grid-template-areas:"k" "m" "l" "r"}
+  #mitte{overflow:visible;padding:12px 0 4px}
+  #links{border-right:none;border-top:1px solid var(--edge);overflow:hidden}
+  .navi{flex-direction:row;overflow-x:auto;padding:0 8px 4px}
+  .navi button{border-left:none;border-bottom:2px solid transparent;white-space:nowrap;padding:7px 11px}
+  .navi button.an{border-left-color:transparent;border-bottom-color:var(--chalk)}
+  .werkzeuge{flex-direction:row;flex-wrap:wrap}.werkzeuge .knopf{flex:1 1 130px}
+  #rechts{max-height:none}#log{max-height:170px}
+}
+@media (max-width:560px){#kopf span{display:none}#kopf{padding:0 10px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="kopf">
+    <div><b>STASH</b> <span>· muss ich nicht im Kopf haben</span></div>
+    <div class="st" id="brain"><i class="led"></i><em id="brain-t" style="font-style:normal">pi5-brain · online</em></div>
+  </div>
+
+  <div id="links">
+    <div class="rubrik">Ansichten</div>
+    <div class="navi" id="navi"></div>
+    <div class="rubrik">Werkbank</div>
+    <div class="werkzeuge">
+      <button class="knopf haupt" id="b-rec">▸ Sprachnotiz aufnehmen<i id="b-rec-n">nächste: Gehäuse</i></button>
+      <button class="knopf" id="b-wlan">WLAN aus</button>
+      <button class="knopf" id="b-reset">Demo-Stand</button>
+      <button class="knopf" id="b-werk">Werkseinstellung</button>
+    </div>
+    <div class="rubrik">Tagessimulation</div>
+    <div class="sim">
+      <label>Aufnahmen <b id="s-n-v">120</b><input type="range" id="s-n" min="0" max="200" step="10" value="120"></label>
+      <label>davon Tagebuch <b id="s-tb-v">50 %</b><input type="range" id="s-tb" min="0" max="100" step="5" value="50"></label>
+      <label>Schwelle <b id="s-sw-v">0.62</b><input type="range" id="s-sw" min="30" max="95" step="1" value="62"></label>
+      <label class="zeileschalter"><input type="checkbox" id="s-lern"> Listen lernen Schlagwörter dazu</label>
+      <button class="knopf haupt" id="s-run">Tag durchrechnen</button>
+      <button class="knopf" id="s-nacht" disabled>Nacht darüber laufen lassen</button>
+      <button class="knopf" id="s-tag">Tag unterwegs · 200 Aufnahmen</button>
+      <div id="s-out"></div>
+    </div>
+  </div>
+
+  <div id="mitte">
+    <div id="geraet">
+      <div id="buehne"><div id="rahmen"><div id="screen">
+        <div id="geist" aria-hidden="true"></div>
+        <div id="blatt"></div>
+        <div id="aufnahme">
+          <div class="w">AUFNAHME LÄUFT</div>
+          <div class="zeit" id="a-zeit">0,0 s</div>
+          <div class="welle" id="a-welle"></div>
+          <div class="linie"></div>
+          <div class="w" id="a-neben">16 kHz mono · ES8311</div>
+        </div>
+        <div id="wisch"></div>
+      </div></div></div>
+      <div id="knebel">
+        <button id="k-l">◀</button>
+        <div class="rad"><i></i></div>
+        <button id="k-m">●</button>
+        <button id="k-r">▶</button>
+        <span class="teiler"></span>
+        <button id="k-rec" title="seitliche BOOT-Taste">REC</button>
+      </div>
+      <div id="usb"></div>
+    </div>
+    <div id="ablauf">
+      <span class="titel">Ein Tag</span>
+      <button data-phase="0">unterwegs</button>
+      <button data-phase="1">heimgekommen</button>
+      <button data-phase="2">Nacht</button>
+      <button data-phase="3">Morgen</button>
+      <span class="titel" style="border-left:1px solid var(--edge)">Tag 2</span>
+      <button data-phase="4">abends</button>
+      <button data-phase="5">Nacht &amp; Morgen</button>
+    </div>
+    <div id="unterbau">
+      <button class="knopf" id="b-voll">Vollrefresh</button>
+      <button class="knopf" id="b-aus">Gerät aus</button>
+      <div class="schalter" style="width:140px">
+        <button id="b-serif" class="an">Serif</button><button id="b-sans">Sans</button>
+      </div>
+      <div class="schalter" style="width:210px">
+        <button id="b-morgen" class="an">Morgenseite</button><button id="b-uebersicht">Übersicht mit Zählern</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rechts">
+    <div class="rubrik">Brain-Log</div>
+    <div id="log"></div>
+    <div id="stufen"><div class="rubrik" style="padding:10px 0 5px">Pipeline</div><div id="stufenliste"></div></div>
+    <div id="hardware"><div class="rubrik" style="padding:10px 0 5px">Hardware</div><div id="messwerte"></div></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* Zeit- und Durchsatzwerte: geschätzt, an einer Stelle, ersetzbar sobald
+   Whisper das erste Mal echt auf dem Pi läuft. */
+const T={RATE:16000,BREITE:2,VAD:120,QUEUE:4,PROBE:126,WLAN_KBS:790,RTF:0.43,
+  CLEAN:630,KEYS:740,ROUTE:4,TASKS:106,VAULT:220,RENDER:208,BLE_KBIT:720,
+  PARTIAL:340,WISCH:110,VOLL:2400,PMAX:12,STAU:1500,RETRY:30};
+const bytes=s=>Math.round(s*T.RATE*T.BREITE), upMs=s=>Math.round(bytes(s)/1000/T.WLAN_KBS*1000),
+      whMs=s=>Math.round(s*T.RTF*1000), bleMs=kb=>Math.round(kb*8/T.BLE_KBIT*1000),
+      RKB=Math.round(480*800/8/1000);
+
+const AUFNAHMEN=[
+{kurz:'Gehäuse',dauer:14.1,konf:0.91,art:'neu',ziel:'gehäuse',score:0.41,best:'ideen',
+ grund:'kein Treffer über der Schwelle 0.62 — bestes Ziel #ideen mit 0.41',
+ schlag:['gehäuse','3d-druck','magnete'],
+ roh:'Mir ist grad eingefallen für das Gehäuse, ähm, wenn ich das zweiteilig drucke, also Rückschale und Frontplatte getrennt, dann, äh, dann kann ich die Front mit Magneten machen. So kleine Neodym, sechs mal drei, und dann komm ich an die SD-Karte ran ohne dass ich, ähm, ohne dass ich das ganze Ding auseinanderschrauben muss. Das wär eigentlich, ja, das wär ziemlich gut.',
+ rein:'Idee fürs Gehäuse: zweiteilig drucken, Rückschale und Frontplatte getrennt. Die Frontplatte mit Neodym-Magneten 6 × 3 mm halten, dann ist die SD-Karte erreichbar, ohne das Gehäuse aufzuschrauben.',
+ aufg:['Neodym-Magnete 6 × 3 mm bestellen']},
+{kurz:'Feierabend',dauer:19.6,konf:0.93,art:'tagebuch',score:0.88,
+ grund:'Erzählform in der Vergangenheit, kein Auftrag, kein Termin',
+ schlag:['tagebuch','fundament','pv-anlage'],
+ roh:'So, Feierabend. Also heut war ich hauptsächlich draußen, hab die, äh, die Fundamentlöcher fertig gemacht, drei von vier. Das vierte, da kam ich nicht durch, da ist irgendwas drin, wahrscheinlich noch so ein Betonrest von der alten Garage. Ähm. Und nachmittags dann, ja, dann hab ich noch die Auswertung von der PV angeschaut, letzte Woche warens achtzehn Komma vier Kilowattstunden am Tag im Schnitt, das ist mehr als ich dachte.',
+ rein:'Drei von vier Fundamentlöchern fertig; beim vierten sitzt etwas im Boden, vermutlich ein Betonrest der alten Garage. Nachmittags die PV-Auswertung angesehen: letzte Woche im Schnitt 18,4 kWh pro Tag, mehr als erwartet.',
+ aufg:[]},
+{kurz:'Termin',dauer:8.3,konf:0.95,art:'liste',ziel:'termine',score:0.96,
+ grund:'Wochentag und Uhrzeit erkannt, Trigger-Wort „kommt"',
+ schlag:['termine','schornsteinfeger'],
+ roh:'Ähm, Donnerstag um halb elf kommt der Schornsteinfeger, das muss ich, äh, das muss ich mir unbedingt merken. Donnerstag, halb elf.',
+ rein:'Donnerstag, 10:30 Uhr: Schornsteinfeger kommt.',
+ aufg:['Schornsteinfeger · Do 10:30']},
+{kurz:'Doppelstegplatten',dauer:16.8,konf:0.92,art:'liste',ziel:'überdachung',score:0.89,
+ grund:'Trigger-Wörter „doppelstegplatten" und „überdachung" treffen beide',
+ schlag:['überdachung','material','preise'],
+ roh:'Also wegen der Überdachung nochmal, die Doppelstegplatten, ähm, sechzehn Millimeter klar, der eine Händler will neunundvierzig der Quadratmeter und der andere, warte, zweiundvierzig glaub ich, aber da kommt Fracht drauf. Muss ich nochmal durchrechnen was am Ende günstiger ist.',
+ rein:'Doppelstegplatten 16 mm klar: ein Händler verlangt 49 €/m², der andere 42 €/m² zuzüglich Fracht. Was am Ende günstiger ist, muss noch durchgerechnet werden.',
+ aufg:['Frachtkosten für Doppelstegplatten erfragen']},
+{kurz:'Einkauf',dauer:6.2,konf:0.97,art:'liste',ziel:'einkauf',score:0.98,
+ grund:'Trigger-Wort „einkaufen" der festen Liste',
+ schlag:['einkauf'],
+ roh:'Einkaufen: Kaffee, äh, Haferflocken und, warte, ach ja, Spülmaschinentabs. Also Kaffee, Haferflocken, Spülmaschinentabs.',
+ rein:'Einkaufen: Kaffee, Haferflocken, Spülmaschinentabs.',
+ aufg:['Kaffee','Haferflocken','Spülmaschinentabs']},
+];
+
+/* Aufnahmen, die heute schon durchgelaufen sind — das Gerät startet nicht leer. */
+const VORHER=[
+{nr:-2,uhr:'07:41',dauer:12.6,konf:0.95,art:'liste',ziel:'überdachung',score:0.93,
+ grund:'Trigger-Wort „pfosten" trifft, „überdachung" bestätigt',schlag:['überdachung','material','bestellen'],
+ roh:'Ähm, also für die Überdachung, ich brauch noch, warte, vier Pfosten neun mal neun in vier Meter, und dann noch die Winkel, die verzinkten, so acht Stück würd ich sagen. Und ich muss nochmal nachmessen wie breit das hinten wirklich ist.',
+ rein:'Für die Überdachung fehlen vier Pfosten 9 × 9 cm in 4 m Länge und acht verzinkte Winkel. Die Breite hinten noch einmal nachmessen.',
+ aufg:['Pfosten 9 × 9 und Winkel bestellen','Breite an der Wand nachmessen'],loesch:'07.10.'},
+{nr:-1,uhr:'11:18',dauer:9.4,konf:0.96,art:'liste',ziel:'pv-anlage',score:0.87,
+ grund:'Trigger-Wort „wechselrichter" trifft die gewachsene Liste',schlag:['pv-anlage','wechselrichter'],
+ roh:'Der Wechselrichter hat heut früh wieder so gebrummt, so kurz nach acht, als die Sonne draufkam. Ähm, vielleicht mal nachschauen ob der irgendwo lose sitzt.',
+ rein:'Der Wechselrichter hat morgens gegen acht wieder gebrummt, als die Sonne darauf fiel. Prüfen, ob er lose sitzt.',
+ aufg:['Wechselrichter auf lose Befestigung prüfen'],loesch:'07.10.'},
+];
+
+const LISTEN={
+ 'einkauf':{art:'fest',anz:3,trig:['einkaufen','besorgen','holen','mitbringen']},
+ 'tagebuch':{art:'fest',anz:41,trig:['heute war','feierabend','rückblick']},
+ 'ideen':{art:'fest',anz:12,trig:['idee','einfall','vielleicht könnte man']},
+ 'termine':{art:'fest',anz:6,trig:['termin','kommt','uhr']},
+ 'überdachung':{art:'gewachsen',anz:15,seit:'12.04.',trig:['überdachung','pfosten','sparren','dachlatten','doppelstegplatten','fundament','neigung']},
+ 'pv-anlage':{art:'gewachsen',anz:10,seit:'03.05.',trig:['pv','wechselrichter','einspeisung','kilowattstunden','ertrag']},
+ 'obsidian':{art:'gewachsen',anz:5,seit:'21.06.',trig:['obsidian','vault','plugin','markdown']},
+ 'dachrinne':{art:'verblasst',anz:2,seit:'19.03.',still:63,trig:['dachrinne','fallrohr','regenrinne']},
+};
+const EINTRAEGE=[
+ {d:'02.09.',t:'Doppelstegplatten 16 mm klar — Preise bei zwei Händlern vergleichen, Fracht beachten.'},
+ {d:'28.08.',t:'Neigung 8 Grad reicht. Mehr geht wegen der Fenster im Obergeschoss nicht.'},
+ {d:'21.08.',t:'Sparren 6 × 12, Abstand 70 cm. Passt auf die Breite ohne Rest.'},
+ {d:'14.08.',t:'Fundamente 40 × 40 × 80, vier Stück. Frostfrei reicht hier bei 80.'},
+ {d:'09.08.',t:'Anschluss an die Hauswand über eine Wandanschlussschiene, nicht aufgedübelt.'},
+];
+const AUFGABEN=[
+ {t:'Pfosten 9 × 9 und Winkel bestellen',f:false},
+ {t:'Breite an der Wand nachmessen',f:false},
+ {t:'Frachtkosten erfragen',f:false},
+ {t:'Fundamentlöcher ausheben',f:true},
+ {t:'Neigung am Giebel abstecken',f:true},
+];
+const TAGEBUCH=[
+ {uhr:'08:12',t:'Früh raus, es war noch kühl und der Boden nass vom Tau. Zuerst den Anhänger zurückgebracht, danach gleich am Fundament weiter.'},
+ {uhr:'13:40',t:'Mittags kurz Pause im Schatten. Der Boden hinten ist deutlich steiniger als vorne, das dauert länger als gedacht — pro Loch fast eine Stunde statt zwanzig Minuten.'},
+ {uhr:'16:05',t:'Nachbar kam vorbei und hat sich die Neigung angesehen. Er meint, acht Grad reichen, bei ihm läuft es seit vier Jahren so ab.'},
+];
+const ERINNERUNGEN=[
+ {t:'Pfosten 9 × 9 und Winkel bestellen',f:false},
+ {t:'Breite an der Wand nachmessen',f:false},
+ {t:'Wechselrichter auf lose Befestigung prüfen',f:false},
+ {t:'Anhänger zurückbringen',f:true},
+ {t:'Bohrer 12 mm nachkaufen',f:true},
+];
+const KALENDER={1:[{u:'09:00',t:'Zahnarzt'}],2:[{u:'07:30',t:'Baustoffhandel, Abholung'}],
+ 3:[{u:'18:30',t:'Elternabend'}],4:[{u:'14:00',t:'Lieferung Holz'}],5:[{u:'10:00',t:'Sperrmüll'}]};
+
+/* ── Tagessimulation ─────────────────────────────────────────────────────
+   Die Einsortier-Regel aus dem README, auf einen ganzen Tag angewandt:
+   Schlagwörter gegen Trigger-Wörter, Anteil der Treffer ist der Score,
+   unter der Schwelle wird eine neue Liste angelegt. */
+const THEMEN=[
+ [12,[['überdachung','pfosten','bestellen'],['überdachung','sparren','abstand'],
+      ['doppelstegplatten','preis','händler'],['fundament','beton','frostfrei'],
+      ['überdachung','neigung','giebel'],['dachlatten','zuschnitt','maß']]],
+ [8,[['pv','ertrag','kilowattstunden'],['wechselrichter','brummen','befestigung'],
+     ['einspeisung','vergütung','abrechnung'],['pv','verschattung','baum']]],
+ [7,[['einkaufen','kaffee','haferflocken'],['besorgen','schrauben','baumarkt'],
+     ['einkaufen','brot','milch'],['mitbringen','klebeband']]],
+ [5,[['termin','schornsteinfeger','uhr'],['termin','zahnarzt','uhr'],['kommt','lieferung','uhr']]],
+ [3,[['gehäuse','3d-druck','magnete'],['gehäuse','filament','druckbett'],['gehäuse','frontplatte','toleranz']]],
+ [2,[['werkstatt','regal','aufräumen'],['werkstatt','beleuchtung','led']]],
+ [2,[['brennholz','stapeln','trocknen'],['brennholz','kettensäge','kette']]],
+ [2,[['zaun','pfosten','setzen'],['zaun','tor','beschlag']]],
+ [2,[['heizung','entlüften','druck'],['heizung','thermostat','tausch']]],
+ [1,[['kompost','umsetzen','sieb']]],[1,[['fahrrad','schaltung','einstellen']]],
+ [1,[['auto','inspektion','werkstatt']]],[1,[['keller','feuchte','messen']]],
+ [1,[['versicherung','police','kündigen']]],[1,[['steuer','belege','sortieren']]],
+ [1,[['urlaub','fähre','buchen']]],[1,[['rezept','sauerteig','anstellgut']]],
+ [1,[['nachbarn','grenze','absprache']]],[1,[['teich','pumpe','filter']]],
+ [1,[['dachboden','dämmung','klemmfilz']]],[1,[['obsidian','plugin','tasks']]],
+ [1,[['dachrinne','laub','gitter']]],[1,[['schule','elternabend','termin']]],
+ [1,[['wasserleitung','absperrhahn','tropft']]],
+];
+function treffer(keys,trig){let t=0;keys.forEach(k=>{if(trig.has(k))t++;});return keys.length?t/keys.length:0;}
+/* Der Tag unterwegs: alles wandert in die Warteschlange und wird erst zu
+   Hause abgearbeitet. Sortiert wird vorläufig mit der billigen Regel. */
+function tagUnterwegs(){
+  const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
+  const vorrat=[];TAG_UNTERWEGS.forEach(([g,thema,m])=>{for(let i=0;i<g;i++)vorrat.push([thema,m[i%m.length]]);});
+  const tb=112, rest=200-tb;                        // gut die Hälfte ist Tagebuch
+  L['tagebuch'].anz+=tb;
+  const ziele={},themaZiel={},neu=[];
+  const sekunden=(tb+rest)*14;                      // alle 200 müssen durch Whisper, auch das Tagebuch
+  for(let i=0;i<rest;i++){
+    const [thema,keys]=vorrat[i%vorrat.length];
+    let beste=null,best=0;
+    for(const [name,l] of Object.entries(L)){const sc=treffer(keys,l.trig);if(sc>best){best=sc;beste=name;}}
+    let ziel;
+    if(best>=0.62){ziel=beste;}
+    else{ziel=keys.slice().sort()[0];
+      if(!L[ziel]){L[ziel]={art:'gewachsen',anz:0,seit:'heute',neu:true,trig:new Set(keys)};neu.push(ziel);}
+      else L[ziel].trig=new Set([...L[ziel].trig,...keys]);}
+    L[ziel].anz++;ziele[ziel]=(ziele[ziel]||0)+1;
+    (themaZiel[thema]=themaZiel[thema]||{})[ziel]=(themaZiel[thema][ziel]||0)+1;
+  }
+  // Zeit zum Aufholen: Upload plus Whisper über den ganzen Stapel
+  const minuten=Math.round((sekunden*T.RTF + sekunden*T.BREITE*T.RATE/1000/T.WLAN_KBS)/60);
+  const einzeln=neu.filter(k=>ziele[k]===1).length;
+  return {L,tb,rest,ziele,themaZiel,neu,einzeln,minuten,
+          top:Object.entries(ziele).sort((a,b)=>b[1]-a[1]).slice(0,3)};
+}
+
+/* Tag 2 durchrechnen: 100 Aufnahmen, gut die Hälfte Tagebuch. */
+function tagZwei(){
+  const L={};Object.entries(S.listen).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,neu:v.neu,trig:new Set(v.trig)});
+  const tb=58, rest=42;
+  L['tagebuch'].anz+=tb;
+  const themen={};
+  for(let i=0;i<rest;i++){
+    const [thema,art,text]=TAG2[i%TAG2.length];
+    (themen[thema]=themen[thema]||{fest:[],offen:[],tun:[],n:0}).n++;
+    const topf=themen[thema][art];
+    if(!topf.includes(text))topf.push(text);
+  }
+  return {tb,rest,themen,sekunden:(tb+rest)*14,
+          minuten:Math.round(((tb+rest)*14*T.RTF+(tb+rest)*14*T.BREITE*T.RATE/1000/T.WLAN_KBS)/60)};
+}
+
+function simuliere(anzahl,tbAnteil,schwelle,lernend){
+  const L={};Object.entries(LISTEN).forEach(([k,v])=>L[k]={art:v.art,anz:v.anz,seit:v.seit,still:v.still,trig:new Set(v.trig)});
+  const vorher=Object.keys(L).length;
+  const tb=Math.round(anzahl*tbAnteil/100), rest=anzahl-tb;
+  const vorrat=[];THEMEN.forEach(([g,m])=>{for(let i=0;i<g;i++)vorrat.push(m[i%m.length]);});
+  const neu=[],ziele={},hist={};let einzel=0;
+  L['tagebuch'].anz+=tb;
+  for(let i=0;i<rest;i++){
+    const keys=vorrat[i%vorrat.length];
+    let beste=null,best=0;
+    for(const [name,l] of Object.entries(L)){const sc=treffer(keys,l.trig);if(sc>best){best=sc;beste=name;}}
+    const stufe=best.toFixed(2);hist[stufe]=(hist[stufe]||0)+1;
+    if(best>=schwelle){L[beste].anz++;ziele[beste]=(ziele[beste]||0)+1;
+      if(lernend)keys.forEach(k=>L[beste].trig.add(k));}
+    else{
+      const name=keys.slice().sort()[0];
+      if(L[name]){L[name].anz++;ziele[name]=(ziele[name]||0)+1;keys.forEach(k=>L[name].trig.add(k));}
+      else{L[name]={art:'gewachsen',anz:1,seit:'heute',neu:true,trig:new Set(keys)};
+        neu.push(name);ziele[name]=1;}
+    }
+  }
+  Object.keys(L).forEach(k=>{if(L[k].neu&&ziele[k]===1)einzel++;});
+  return {L,vorher,nachher:Object.keys(L).length,neu:neu.length,einzel,tb,rest,hist,
+          groesste:Object.entries(ziele).sort((a,b)=>b[1]-a[1])[0]||['—',0]};
+}
+
+/* Ein konkreter Tag, den ganzen Tag unterwegs, alles auf der SD-Karte.
+   Drei Themen tragen ihn, dazu Beiläufiges und viel Tagebuch. */
+const TAG_UNTERWEGS=[
+ [16,'Überdachung Outdoor-Gym',[
+   ['überdachung','outdoor-gym','maße'],['überdachung','regenschutz','hantelbank'],
+   ['pfosten','sechs','meter'],['boden','gummimatten','fallschutz'],
+   ['dach','lichtplatten','helligkeit'],['stahl','holz','vergleich'],
+   ['fundament','punktfundament','frostfrei'],['wind','statik','abspannung']]],
+ [13,'Heide Park',[
+   ['heide-park','krake','wartezeit'],['heide-park','colossus','holzachterbahn'],
+   ['heide-park','essen','preise'],['soltau','anfahrt','stau'],
+   ['heide-park','flug-der-dämonen','looping'],['park','wetter','sonne']]],
+ [11,'Ärger mit KIs',[
+   ['ki','anweisung','ignoriert'],['ki','umweg','statt-antwort'],
+   ['ki','behauptung','ungeprüft'],['stash','showcase','nacharbeit'],
+   ['ki','kontingent','verbraucht']]],
+ [4,'Beiläufig',[['einkaufen','kaffee','brot'],['termin','werkstatt','uhr'],
+   ['brennholz','stapeln','trocknen'],['auto','tanken','quittung']]],
+];
+
+/* Der Inhalt des Tages, nicht nur seine Ablage. Von Hand gesetzt als Muster
+   dessen, was das Modell nachts aus den Rohnotizen ziehen müsste. */
+const TAGESINHALT={
+ 'Überdachung Outdoor-Gym':{
+   fest:'Stahlrahmen statt Holz: bei sechs Metern Spannweite trüge Holz nur mit Stützen mittendrin, und die stehen im Weg. Dach aus Lichtplatten, sonst wird es zu dunkel zum Trainieren. Punktfundamente, 80 cm, frostfrei.',
+   offen:'Breite noch nicht nachgemessen. Gummimatten unter die Hantelbank oder daneben?',
+   aufgaben:['Gummimatten bestellen','Statik für Windlast fragen','Preise für Lichtplatten holen']},
+ 'Heide Park':{
+   fest:'Krake hatte vierzig Minuten Wartezeit und war trotzdem die beste Fahrt. Colossus hat sich gelohnt, das Essen im Park nicht. Rückfahrt mit Stau ab Soltau.',
+   offen:'',aufgaben:[]},
+ 'Ärger mit KIs':{
+   fest:'Der Nachmittag ging drauf: Anweisungen ignoriert, statt Antworten kamen Umwege, und mehrfach wurde etwas behauptet, das niemand geprüft hatte.',
+   offen:'Enger führen — oder das Ergebnis einfordern, statt den Weg zu begleiten?',
+   aufgaben:[]},
+};
+
+/* Offene Fragen von Tag 1, die Tag 2 beantwortet hat. Der Nachtlauf sieht
+   beide Tage und kann das zusammenbringen — das ist der Nutzen der Nacht,
+   der über bloßes Zusammenlegen hinausgeht. */
+const EINGANG_MO=[
+ ['07:12',18.2,'überdachung','Die Fläche fürs Gym hinterm Haus ist gut sechs Meter, das reicht für vier Felder'],
+ ['09:48',12.6,'überdachung','Stahlrahmen statt Holz — bei der Spannweite trägt Holz nur mit Stützen mittendrin'],
+ ['11:30',9.1,'heide-park','Krake vierzig Minuten Wartezeit, hat sich trotzdem gelohnt'],
+ ['13:05',7.4,'heide-park','Das Essen im Park ist unverschämt teuer'],
+ ['15:22',16.8,'überdachung','Lichtplatten statt Vollblech, sonst wird es zu dunkel zum Trainieren'],
+ ['17:40',21.3,'ki','Der Nachmittag ging drauf, weil Anweisungen ignoriert wurden'],
+ ['19:15',11.9,'ki','Mehrfach etwas behauptet, das niemand geprüft hatte'],
+];
+const TAGEBUCH_MO=[
+ ['07:05','Früh los Richtung Soltau, Stau ab der Autobahn. Der Tag war warm und trocken.'],
+ ['14:20','Der Park war voll, aber die Wartezeiten gingen. Zwischendurch am Zaun gestanden und über das Gym-Dach nachgedacht.'],
+ ['21:40','Abends noch am Rechner gesessen und mich geärgert. Vier Stunden für etwas, das eine halbe gedauert hätte.'],
+];
+const TAGEBUCH_DI=[
+ ['08:30','Vormittags das Grundstück abgesteckt und nachgemessen. Schmaler als gedacht.'],
+ ['15:10','Im Baumarkt nach Lichtplatten gefragt. Getönt gibt es nur auf Bestellung.'],
+ ['20:55','Abends die Maße durchgerechnet und gemerkt, dass ein Feld wegfällt.'],
+];
+
+const KLAERUNGEN=[
+ ['Breite der Fläche','5,80 auf 3,40 — damit fällt ein Feld weg'],
+ ['Gummimatten unter die Bank oder daneben','unter die ganze Fläche'],
+ ['Brummen am Wechselrichter','war die Halterung, ist weg'],
+];
+
+/* Tag 2, zu Hause. Jede Zeile ist eine einzelne Aufnahme mit ihrem Inhalt und
+   ihrer Art. Die Seiten setzen sich daraus selbst zusammen — nichts davon ist
+   vorformulierter Fließtext. */
+const TAG2=[
+ ['Überdachung','fest','Die Fläche ist 5,80 auf 3,40 — schmaler als gedacht, damit fällt ein Feld weg'],
+ ['Überdachung','fest','Der Boden fällt nach hinten um gut zwölf Zentimeter, das muss über die Fundamenthöhen raus'],
+ ['Überdachung','fest','Die Gummimatten kommen unter die ganze Fläche, nicht nur unter die Bank'],
+ ['Überdachung','offen','Ob der Statiker die Windlast ohne Zeichnung überhaupt beurteilen kann'],
+ ['Überdachung','offen','Ob die Lichtplatten bei acht Grad Neigung genug Ablauf haben'],
+ ['Überdachung','tun','Zeichnung für den Statiker machen'],
+ ['Überdachung','tun','Gummimatten 20 mm, 20 m² bestellen'],
+ ['Überdachung','tun','Sechs Pfostenschuhe zum Aufdübeln besorgen'],
+ ['Material','fest','Lichtplatten gibt es im Baumarkt nur klar in 16 mm, getönt muss bestellt werden'],
+ ['Material','fest','Pfostenschuhe verzinkt kosten im Baumarkt das Doppelte vom Onlinepreis'],
+ ['Material','tun','Lichtplatten online vergleichen'],
+ ['PV-Anlage','fest','Der Wechselrichter brummt nicht mehr, seit die Halterung nachgezogen ist'],
+ ['Wetter','fest','Für Donnerstag ist Regen angesagt'],
+ ['Wetter','tun','Brennholz vorher abdecken'],
+ ['Einkauf','tun','Kaffee, Brot, Spülmaschinentabs'],
+];
+
+/* Der Nachtlauf. Tagsüber entscheidet die Regel je Notiz und sieht nur diese
+   eine. Nachts liegen alle Listen nebeneinander — ein einziges gemeinsames
+   Trigger-Wort genügt dann, um eine gestern entstandene Liste zurückzuführen. */
+function nachtlauf(L){
+  const zusammen=[];
+  Object.keys(L).forEach(neu=>{
+    if(!L[neu]||!L[neu].neu)return;
+    let ziel=null,best=0;
+    Object.keys(L).forEach(alt=>{
+      if(alt===neu||!L[alt]||L[alt].neu)return;
+      const gemeinsam=[...L[neu].trig].filter(k=>L[alt].trig.has(k)).length;
+      if(gemeinsam>best){best=gemeinsam;ziel=alt;}
+    });
+    if(ziel){L[ziel].anz+=L[neu].anz;L[neu].trig.forEach(k=>L[ziel].trig.add(k));
+      zusammen.push([neu,ziel]);delete L[neu];}
+  });
+  return zusammen;
+}
+
+/* Zustand — nur JS-Variablen, nichts wird gespeichert. */
+/* Werkseinstellung. Das Gerät startet leer: keine Aufnahmen, keine
+   Warteschlange, kein Tagebuch, vier leere feste Listen, kein Pi eingerichtet.
+   Der Demo-Stand wird nur über den Knopf „Demo-Stand“ geladen. */
+const S={ansicht:'heute',werk:true,eingerichtet:false,phase:null,tagOffset:0,eingangN:0,eingangTag:null,tagebuchN:0,tag2:null,abend:null,morgen:true,nacht:null,zurueck:null,simLauf:null,notizNr:null,roh:false,wlan:false,an:true,serif:true,laeuft:false,
+  partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
+  listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
+          ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
+  tagebuch:[],erinnerungen:[],zusammen:null,akku:100,sdMb:0,retry:T.RETRY};
+
+const ANSICHTEN=[{id:'heute',t:'Heute'},{id:'eingang',t:'Eingang'},{id:'listen',t:'Listen'},
+ {id:'detail',t:'#überdachung'},{id:'notiz',t:'Notiz'},{id:'tagebuch',t:'Tagebuch'},
+ {id:'kalender',t:'Kalender'},{id:'warteschlange',t:'Warteschlange'}];
+
+const $=s=>document.querySelector(s), zw=n=>String(n).padStart(2,'0');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const wz=s=>s.trim().split(/\s+/).length, kf=(n,k=1)=>n.toFixed(k).replace('.',',');
+const WT=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const WK=['So','Mo','Di','Mi','Do','Fr','Sa'];
+const MO=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const HEUTE=new Date();
+/* Der Showcase erzählt drei Tage: Tag 1 unterwegs, die Nacht darauf, Tag 2. */
+const tagPlus=k=>{const d=new Date(HEUTE);d.setDate(HEUTE.getDate()+k);return d;};
+const datumZeile=k=>{const d=tagPlus(k);return WT[d.getDay()]+', '+d.getDate()+'. '+MO[d.getMonth()];};
+const uhr=d=>zw(d.getHours())+':'+zw(d.getMinutes());
+const stmp=d=>zw(d.getHours())+':'+zw(d.getMinutes())+':'+zw(d.getSeconds())+'.'+String(d.getMilliseconds()).padStart(3,'0');
+function kw(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));
+  return Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/864e5+1)/7);}
+function woche(){const s=new Date(HEUTE);s.setDate(HEUTE.getDate()-((HEUTE.getDay()+6)%7));
+  return Array.from({length:7},(_,i)=>{const d=new Date(s);d.setDate(s.getDate()+i);return d;});}
+
+const IK={
+ wlan:a=>`<svg width="14" height="10" viewBox="0 0 14 10" shape-rendering="crispEdges" fill="none" stroke="currentColor"><path d="M1 3.5C2.6 2 4.7 1.2 7 1.2s4.4.8 6 2.3"/><path d="M3.3 5.8C4.3 4.9 5.6 4.4 7 4.4s2.7.5 3.7 1.4"/><rect x="6.2" y="7.6" width="1.6" height="1.6" fill="currentColor" stroke="none"/>${a?'':'<path d="M1.5 9L12.5 1"/>'}</svg>`,
+ akku:p=>`<svg width="23" height="11" viewBox="0 0 23 11" shape-rendering="crispEdges" fill="none" stroke="currentColor"><rect x="0.5" y="0.5" width="19" height="10"/><rect x="20.5" y="3.5" width="2" height="4" fill="currentColor" stroke="none"/><rect x="2" y="2" width="${Math.max(1,Math.round(16*p/100))}" height="7" fill="currentColor" stroke="none"/></svg>`,
+ stapel:()=>`<svg width="10" height="10" viewBox="0 0 10 10" shape-rendering="crispEdges" fill="currentColor"><rect width="10" height="2"/><rect y="4" width="10" height="2"/><rect y="8" width="10" height="2"/></svg>`,
+ kast:f=>`<svg width="12" height="12" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="none" stroke="currentColor" style="flex:none"><rect x="0.5" y="0.5" width="11" height="11"/>${f?'<path d="M2.5 6.2l2.4 2.4 4.6-5"/>':''}</svg>`};
+
+const kopfleiste=()=>{const n=S.warteschlange.length;return `<div class="kopfleiste"><div style="letter-spacing:.12em">STASH</div><div class="r">
+ ${n?`<span class="s mo">${IK.stapel()} ${n}</span>`:''}
+ <span class="s">${IK.wlan(S.wlan)}</span>
+ <span class="s mo">${IK.akku(S.akku)} ${S.akku}%</span>
+ <span class="mo">${uhr(new Date())}</span></div></div>`;};
+const tief=()=>S.ansicht==='notiz'||S.ansicht==='detail';
+const mitte=()=>tief()?'schließen':(S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length?'Notiz öffnen'
+  :S.ansicht==='listen'?'Liste öffnen':'—';
+const fuss=()=>`<div class="fuss"><span>◀ zurück</span><span>● ${mitte()}</span><span>▶ weiter</span></div>`;
+const band=t=>`<div class="band">${t}</div>`;
+
+const V={};
+
+/* Was die Nachtschicht auf eine Seite schreibt. Von Hand gesetzt als
+   Muster für die Zielform — hier rechnet kein Modell, der Pi tut das. */
+V.morgen=()=>`
+ <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="regel stark"></div>
+ <div class="p" style="margin-bottom:11px">An der Überdachung hängt es an den Pfosten — davon war
+   gestern dreimal die Rede, zuletzt am Abend. Die Doppelstegplatten sind bei zwei Händlern
+   angefragt, die Frachtkosten stehen noch aus.</div>
+ <div class="p" style="margin-bottom:11px">Die PV lief die Woche über bei 18,4 kWh am Tag. Das
+   Brummen vom Wechselrichter kam zweimal vor; du wolltest nachsehen, ob er lose sitzt.</div>
+ <div class="p" style="margin-bottom:11px">Neu dazugekommen ist das Gehäuse — zweiteilig drucken,
+   Frontplatte magnetisch. Dafür gibt es seit gestern eine eigene Liste.</div>
+ <div class="p" style="margin-bottom:11px">Gestern warst du hauptsächlich draußen. Drei von vier
+   Fundamentlöchern sind fertig, beim vierten sitzt ein Betonrest im Boden.</div>
+ <div class="p">Donnerstag um halb elf kommt der Schornsteinfeger.</div>
+ <div class="regel"></div>
+ <div class="m">In der Nacht zusammengelegt:<br>#beton, #dachlatten, #doppelstegplatten → #überdachung</div>`;
+
+/* Aus dem Bestand gerechnet, ohne Modell — deshalb liest es sich wie eine
+   Meldung und nicht wie ein Absatz. Genau diese Lücke soll nachts der Pi füllen. */
+V.morgenAusDaten=()=>{
+  const a=S.abend,z=S.nacht||[], weg=new Set(z.map(([alt])=>alt));
+  // Was von jedem Thema übrig ist, nachdem die Nacht zusammengelegt hat
+  const themen=Object.entries(a.themaZiel).map(([thema,ziele])=>{
+    const gesamt=Object.values(ziele).reduce((x,y)=>x+y,0);
+    const offen=Object.keys(ziele).filter(k=>!weg.has(k)&&S.listen[k]&&S.listen[k].neu);
+    return {thema,gesamt,teile:Object.keys(ziele).length,offen};
+  }).sort((x,y)=>y.gesamt-x.gesamt);
+  const satz=t=>t.offen.length>1
+    ? `liegt noch auf ${t.offen.length} Listen, die nicht zusammengefunden haben: ${t.offen.slice(0,3).map(k=>'#'+k).join(', ')}`
+    : t.offen.length===1 ? `steht unter #${t.offen[0]}` : `ist zusammengeführt`;
+  const aufgaben=[];themen.forEach(t=>{const i=TAGESINHALT[t.thema];if(i)aufgaben.push(...i.aufgaben);});
+  const zerstreut=themen.filter(t=>t.offen.length>1);
+  const w=woche(),i0=(HEUTE.getDay()+6)%7,term=[];
+  for(let d=1;d<7&&term.length<3;d++){const t=new Date(HEUTE);t.setDate(HEUTE.getDate()+d);
+    (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(term.length<3)term.push({tag:WK[t.getDay()],...e});});}
+  const P='font-size:14px;line-height:1.40;';
+  return `
+ <div class="d1" style="font-size:27px">${datumZeile(1)}</div>
+ <div class="regel stark" style="margin:8px 0"></div>
+ ${themen.slice(0,3).map((t,k)=>{const i=TAGESINHALT[t.thema];if(!i)return '';
+   return `${k?'<div class="regel eng"></div>':''}
+   <div class="d2" style="font-size:16px;margin-bottom:2px">${esc(t.thema)}</div>
+   <div class="p" style="${P}margin-bottom:${i.offen?'3px':'7px'}">${esc(i.fest)}</div>
+   ${i.offen?`<div class="p" style="${P}margin-bottom:7px"><i>Offen:</i> ${esc(i.offen)}</div>`:''}`;}).join('')}
+ <div class="regel eng"></div>
+ <div style="display:flex;gap:14px">
+  <div style="flex:1.15">
+   <div class="m kursiv" style="margin-bottom:3px">Zu tun</div>
+   ${aufgaben.map(t=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:13px">${esc(t)}</span></div>`).join('')}
+  </div>
+  <div style="flex:.85">
+   <div class="m kursiv" style="margin-bottom:3px">Diese Woche</div>
+   ${term.map(t=>`<div class="z" style="padding:1px 0"><span class="uhr" style="width:20px">${t.tag}</span>
+     <span class="t" style="font-size:13px">${t.u} ${esc(t.t)}</span></div>`).join('')}
+  </div>
+ </div>
+ <div class="regel eng"></div>
+ <div class="p" style="${P}margin-bottom:5px"><i>Nebenbei:</i> Kaffee und Brot fehlen, der Werkstatt-Termin
+   steht noch ohne Uhrzeit, das Brennholz muss vor dem Regen gestapelt werden, und die Tankquittung
+   liegt im Auto.</div>
+ <div class="p" style="${P}margin-bottom:5px"><i>Im Tagebuch:</i> ${a.tb} Absätze von unterwegs —
+   die Anfahrt, der Tag im Park, abends der Ärger am Rechner.</div>
+ <div class="p" style="${P}"><i>Eingeschlafen:</i> #dachrinne hat sich seit
+   63 Tagen nicht gemeldet. Archivieren?</div>
+ <div class="regel" style="margin:6px 0"></div>
+ <div class="m">${a.tb+a.rest} Aufnahmen verarbeitet · ${z.length} Listen in der Nacht zusammengelegt
+   ${z.slice(0,2).map(([x,y])=>'(#'+x+' → #'+y+')').join(' ')}</div>
+ ${zerstreut.length?`<div class="m" style="margin-top:4px">${esc(zerstreut[0].thema)} liegt noch auf
+   ${zerstreut[0].offen.slice(0,3).map(k=>'#'+k).join(', ')} — sag es mir, dann lege ich sie zusammen.</div>`:''}`;
+};
+
+V.uebersicht=()=>{
+ const na=[];for(let d=0;d<7&&na.length<4;d++){const t=new Date(HEUTE);t.setDate(HEUTE.getDate()+d);
+  (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(na.length<4)na.push({tag:d===0?'heute':d===1?'morgen':WK[t.getDay()],u:e.u,t:e.t});});}
+ const offen=S.erinnerungen.filter(e=>!e.f), letzte=S.verarbeitet[S.verarbeitet.length-1];
+ const tw=S.tagebuch.reduce((a,p)=>a+wz(p.t),0);
+ return `<div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="m" style="margin-top:5px">KW ${kw(HEUTE)} · ${HEUTE.getFullYear()}</div>
+ <div class="regel stark"></div>
+ ${S.eingerichtet?band('Nächste Termine')+na.map(t=>`<div class="z"><span class="uhr">${t.u}</span><span class="t u trunk">${esc(t.t)}</span><span class="re">${t.tag}</span></div>`).join('')+'<div class="regel"></div>':''}
+ ${band('Fällig · '+offen.length)}
+ ${offen.slice(0,4).map(e=>`<div class="z">${IK.kast(false)}<span class="t u">${esc(e.t)}</span></div>`).join('')}
+ <div class="regel"></div>
+ ${band('Eingang')}
+ <div class="z"><span class="t u"><b style="font-family:var(--serif);font-size:19px">${S.verarbeitet.length}</b>
+   <span class="m"> Aufnahmen heute${S.warteschlange.length?' · '+S.warteschlange.length+' wartend':''}</span></span></div>
+ ${letzte&&letzte.rein?`<div class="p" style="font-size:13.5px;margin-top:3px">„${esc(letzte.rein.split('. ')[0])} …"</div>
+   <div class="m" style="margin-top:2px">${letzte.uhr} · #${esc(letzte.ziel||'tagebuch')}</div>`:''}
+ <div class="regel"></div>
+ ${band('Tagebuch')}
+ <div class="z"><span class="t m">${S.tagebuch.length} Absätze · ${tw} Wörter</span></div>
+ ${S.tagebuch.length?`<div class="p" style="font-size:13.5px;margin-top:3px">„${esc(S.tagebuch[S.tagebuch.length-1].t.slice(0,96))} …"</div>`:''}`;
+};
+
+/* Der Stapel ist durch, aufgeräumt ist noch nichts. Genau das sagt die Seite
+   auch — damit die vorläufige Unordnung nicht wie ein Fehler aussieht. */
+V.abend=()=>{const a=S.abend;
+ return `
+ <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="m" style="margin-top:5px">Warteschlange abgearbeitet · ${a.minuten} min</div>
+ <div class="regel stark"></div>
+ <div class="p" style="margin-bottom:11px">Du warst den ganzen Tag unterwegs.
+   ${a.tb+a.rest} Aufnahmen lagen auf der Karte, ${a.tb} davon sind ins Tagebuch gegangen.</div>
+ ${band('Der Tag in drei Themen')}
+ ${Object.entries(a.themaZiel).slice(0,3).map(([thema,z])=>{
+   const gesamt=Object.values(z).reduce((x,y)=>x+y,0), teile=Object.keys(z).length;
+   return `<div class="z"><span class="t u">${esc(thema)}</span>
+     <span class="re">${gesamt}</span></div>
+     <div class="m" style="margin:-2px 0 6px">${teile===1?'in einer Liste':'auf '+teile+' Listen verteilt'}</div>`;}).join('')}
+ <div class="regel"></div>
+ <div class="p" style="margin-bottom:9px">${a.neu.length} Listen sind heute neu entstanden,
+   ${a.einzeln} davon mit einer einzigen Notiz.</div>
+ <div class="rahmen"><div class="u">Aufgeräumt wird heute Nacht.</div>
+   <div class="m" style="margin-top:3px">Zusammengehöriges wird zusammengelegt, die Namen werden
+   überarbeitet. Morgen früh steht hier, was sich verschoben hat.</div></div>`;
+};
+
+/* Abends nach Tag 2: was heute gesagt wurde, in der Reihenfolge des Bestands.
+   Noch unsortiert, noch nicht verdichtet — das passiert nachts. */
+V.abendZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.38;';
+ const th=Object.entries(d.themen).sort((a,b)=>b[1].n-a[1].n);
+ return `
+ <div class="d1" style="font-size:25px">${datumZeile(1)}</div>
+ <div class="m" style="margin-top:3px">Heute zu Hause · ${d.tb+d.rest} Aufnahmen · zuletzt vor 4 Minuten</div>
+ <div class="regel stark" style="margin:8px 0"></div>
+ ${th.map(([name,t],k)=>`${k?'<div class="regel eng"></div>':''}
+   <div class="z" style="padding:0 0 2px"><span class="t d2" style="font-size:15px">${esc(name)}</span>
+     <span class="re">${t.n}</span></div>
+   ${t.fest.map(x=>`<div class="p" style="${P}">${esc(x)}</div>`).join('')}
+   ${t.offen.map(x=>`<div class="p" style="${P}"><i>Offen:</i> ${esc(x)}</div>`).join('')}
+   ${t.tun.map(x=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:13px">${esc(x)}</span></div>`).join('')}
+ `).join('')}
+ <div class="regel"></div>
+ <div class="m">${d.tb} Aufnahmen sind ins Tagebuch gegangen. Aufgeräumt und verdichtet wird heute Nacht —
+   morgen früh steht hier eine Seite statt einer Liste.</div>`;
+};
+
+/* Morgens nach Tag 2: dieselben Notizen, nur verdichtet. Die Aussagen eines
+   Themas werden zu einem Absatz, Offenes darunter, Aufgaben gesammelt. */
+V.morgenZwei=()=>{const d=S.tag2, P='font-size:13.5px;line-height:1.36;';
+ const th=Object.entries(d.themen).sort((a,b)=>b[1].n-a[1].n);
+ const haupt=th.filter(([,t])=>t.fest.length>1), rest=th.filter(([,t])=>t.fest.length===1);
+ const tun=[];th.forEach(([,t])=>tun.push(...t.tun));
+ const term=[];for(let k=1;k<7&&term.length<3;k++){const t=tagPlus(k+1);
+   (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(term.length<3)term.push({tag:WK[t.getDay()],...e});});}
+ return `
+ <div class="d1" style="font-size:25px">${datumZeile(2)}</div>
+ <div class="regel stark" style="margin:7px 0"></div>
+ ${haupt.map(([name,t],k)=>`${k?'<div class="regel eng"></div>':''}
+   <div class="d2" style="font-size:15px;margin-bottom:2px">${esc(name)}</div>
+   <div class="p" style="${P}">${t.fest.map(esc).join('. ')}.</div>
+   ${t.offen.length?`<div class="p" style="${P}margin-top:3px"><i>Offen:</i> ${t.offen.map(esc).join('. ')}.</div>`:''}`).join('')}
+ <div class="regel eng"></div>
+ ${band('Seit gestern geklärt')}
+ ${KLAERUNGEN.map(([f,a])=>`<div class="z" style="padding:1px 0"><span class="t" style="font-size:13px">${esc(f)}</span>
+   <span class="re" style="font-family:var(--sans);font-size:12.5px;max-width:200px;text-align:right">${esc(a)}</span></div>`).join('')}
+ <div class="regel eng"></div>
+ <div class="p" style="${P}">${rest.map(([name,t])=>'<b style="font-weight:600">'+esc(name)+':</b> '+t.fest.map(esc).join('. ')).join('. ')}.</div>
+ <div class="regel eng"></div>
+ <div class="p" style="${P}"><i>Im Tagebuch:</i> ${d.tb} Absätze — der Tag auf dem Grundstück,
+   der Baumarkt am Nachmittag, abends die Maße durchgerechnet.</div>
+ <div class="regel eng"></div>
+ <div style="display:flex;gap:12px">
+  <div style="flex:1.2"><div class="m kursiv" style="margin-bottom:2px">Zu tun</div>
+   ${tun.map(t=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:12.5px">${esc(t)}</span></div>`).join('')}</div>
+  <div style="flex:.8"><div class="m kursiv" style="margin-bottom:2px">Diese Woche</div>
+   ${term.map(t=>`<div class="z" style="padding:1px 0"><span class="uhr" style="width:18px">${t.tag}</span>
+     <span class="t" style="font-size:12.5px">${t.u} ${esc(t.t)}</span></div>`).join('')}</div>
+ </div>
+ <div class="regel" style="margin:6px 0"></div>
+ <div class="m">${d.tb+d.rest} Aufnahmen von gestern zu ${haupt.length+rest.length} Themen verdichtet,
+   ${S.nacht?S.nacht.length:0} Listen zusammengelegt, drei offene Fragen von Montag beantwortet.</div>
+ <div class="m" style="margin-top:4px">Der Heide-Park-Tag liegt weiter auf mehreren Listen —
+   sag es mir, dann lege ich sie heute Nacht zusammen.</div>`;
+};
+
+/* Was ein fabrikneues Gerät zeigt: keine Zahlen, weil es keine gibt.
+   Stattdessen wofür es da ist und wie man es bedient. */
+V.erststart=()=>`
+ <div style="height:26px"></div>
+ <div class="d1" style="font-size:36px;letter-spacing:.02em">STASH</div>
+ <div class="p" style="font-size:17px;margin-top:8px">Muss ich nicht im Kopf haben.</div>
+ <div class="regel stark" style="margin:16px 0"></div>
+ <div class="p" style="font-size:15px;margin-bottom:12px">Seitentaste drücken, drauflosreden,
+   loslassen. Mehr ist nicht zu tun — einsortiert wird im Keller.</div>
+ <div class="p" style="font-size:15px;margin-bottom:14px">Der Drehknopf blättert durch die
+   Ansichten und öffnet, was gerade oben steht.</div>
+ <div class="rahmen">
+   <div class="z" style="padding:2px 0"><span class="uhr">◀ ▶</span><span class="t u">blättern</span></div>
+   <div class="z" style="padding:2px 0"><span class="uhr">●</span><span class="t u">öffnen und schließen</span></div>
+   <div class="z" style="padding:2px 0"><span class="uhr">REC</span><span class="t u">aufnehmen, von überall</span></div>
+ </div>
+ <div class="regel"></div>
+ <div class="p" style="font-size:15px;margin-bottom:10px">Vier Listen sind da und bleiben:
+   #einkauf, #tagebuch, #ideen, #termine. Weitere entstehen von selbst, wenn ein Thema wiederkommt.</div>
+ <div class="regel eng"></div>
+ <div class="m">Noch keine Aufnahme. Die Karte ist leer, der Vault auch.</div>
+ <div class="m" style="margin-top:4px">pi5-brain.local ist noch nicht eingerichtet.</div>`;
+
+V.heute=()=>S.werk?V.erststart():S.phase===1?V.abend():S.phase===3?V.morgenAusDaten()
+  :S.phase===4?V.abendZwei():S.phase===5?V.morgenZwei()
+  // Die handgesetzte Morgenseite gehört zum Demo-Stand. Ein Gerät ohne Vorgeschichte
+  // zeigt seinen echten Zustand, nicht eine Seite über Dinge, die es nicht kennt.
+  :(S.morgen&&S.verarbeitet.length>=2?V.morgen():V.uebersicht());
+
+V.eingang=()=>{
+ const alle=[...S.verarbeitet.slice().reverse().map(a=>({a,w:false})),...S.warteschlange.map(a=>({a,w:true}))];
+ const gesamt=S.eingangN!=null?S.eingangN:alle.length;
+ if(!alle.length)return `<div class="d2">${gesamt?gesamt+' Aufnahmen warten noch':'Noch nichts aufgenommen.'}</div>
+   <div class="regel stark"></div><div class="p">${gesamt?'Sie liegen auf der Karte, bis der Pi wieder erreichbar ist.':'Seitentaste drücken, drauflosreden, fertig.'}</div>`;
+ return `<div class="d2">Eingang</div><div class="m">${gesamt} Aufnahmen${S.eingangTag?' · '+S.eingangTag:' heute'}</div>
+ <div class="regel stark"></div>
+ ${alle.slice(0,7).map(({a,w})=>`<div class="klick" data-notiz="${a.nr}" style="padding:6px 0">
+   <div class="z" style="padding:0"><span class="uhr">${a.uhr}</span><span class="t u">${esc(a.rein.split('. ')[0])}.</span></div>
+   <div class="z" style="padding:3px 0 0"><span class="uhr m">${kf(a.dauer)} s</span>
+     <span class="t">${a.schlag.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</span>
+     <span class="re">${w?'wartet':'abgelegt'}</span></div>
+ </div><div class="regel eng"></div>`).join('')}
+ ${gesamt>7?`<div class="m">… und ${gesamt-7} weitere im Vault</div>`:''}`;
+};
+
+V.listen=()=>{
+ if(S.werk)return `<div class="d2">Listen</div><div class="m">vier feste, sonst noch nichts</div>
+  <div class="regel stark"></div>${band('fest')}
+  ${['einkauf','tagebuch','ideen','termine'].map(k=>`<div class="z"><span class="t u">#${k}</span>
+    <span class="re">0</span></div>`).join('')}
+  <div class="regel"></div>
+  <div class="p" style="font-size:14px">Gewachsene Listen entstehen, wenn ein Thema wiederkommt.
+  Bis dahin liegen Notizen im Eingang und sind über die Suche auffindbar.</div>`;
+ const g=a=>Object.entries(S.listen).filter(([,l])=>l.art===a);
+ const max=Math.max(...Object.values(S.listen).map(l=>l.anz));
+ const row=([id,l])=>`<div class="z ${id==='überdachung'?'klick':''}" ${id==='überdachung'?'data-ansicht="detail"':''}>
+   <span class="t u">#${esc(id)}${l.neu?' <span class="chip">neu</span>':''}</span>
+   <span class="meter" style="width:74px"><i style="width:${Math.max(4,Math.round(72*l.anz/max))}px"></i></span>
+   <span class="re" style="width:26px;text-align:right">${l.anz}</span></div>`;
+ return `<div class="d2">Listen</div><div class="m">${Object.keys(S.listen).length} Listen · ${Object.values(S.listen).reduce((a,l)=>a+l.anz,0)} Einträge</div>
+ <div class="regel stark"></div>
+ ${band('fest')}${g('fest').map(row).join('')}
+ <div class="regel"></div>
+ ${band('gewachsen · '+g('gewachsen').length)}${g('gewachsen').slice(0,S.simLauf?12:3).map(([id,l])=>
+   row([id,l])+(S.simLauf?'':`<div class="m" style="padding-left:0;margin:-2px 0 4px">angelegt ${l.seit}</div>`)).join('')}
+ ${g('gewachsen').length>(S.simLauf?12:3)?`<div class="m" style="margin-top:4px">… und ${g('gewachsen').length-(S.simLauf?12:3)} weitere Listen, die nicht auf die Seite passen</div>`:''}
+ <div class="regel"></div>
+ ${band('verblasst')}
+ ${g('verblasst').map(([id,l])=>`<div class="verblasst">${row([id,l])}</div>
+   <div class="rahmen" style="margin-top:6px"><div class="m">Seit ${l.still} Tagen nichts mehr dazugekommen.
+   Archivieren? Der Inhalt bleibt im Vault.</div></div>`).join('')}
+ <div class="regel"></div>
+ ${band('Einsortierung')}
+ <div class="z"><span class="t m">Schwelle für eine neue Liste</span><span class="re">0.62</span></div>
+ <div class="z"><span class="t m">Feste Listen verschwinden nie</span><span class="re">4</span></div>
+ <div class="z"><span class="t m">Archivvorschlag ab</span><span class="re">60 Tagen</span></div>
+ <div class="m mo" style="margin-top:7px">~/Obsidian/stash/Listen/</div>`;
+};
+
+V.detail=()=>{const l=S.listen['überdachung'];
+ if(S.werk||!l)return `<div class="d2">Diese Liste gibt es noch nicht.</div><div class="regel stark"></div>
+  <div class="p">Sie entsteht, sobald mehrfach über dasselbe Thema gesprochen wurde.</div>`;
+ return `<div class="d1" style="font-size:26px">#überdachung</div>
+ <div class="m" style="margin-top:4px">${l.anz} Einträge · angelegt ${l.seit}</div>
+ <div class="regel stark"></div>
+ ${EINTRAEGE.map(e=>`<div class="z"><span class="uhr">${e.d}</span><span class="t u">${esc(e.t)}</span></div>`).join('')}
+ <div class="regel"></div>
+ ${band('Aufgaben')}
+ ${AUFGABEN.map(a=>`<div class="z">${IK.kast(a.f)}<span class="t u" ${a.f?'style="text-decoration:line-through"':''}>${esc(a.t)}</span></div>`).join('')}
+ <div class="regel"></div>
+ <div class="rahmen"><div class="m kursiv" style="margin-bottom:5px">Sortiert hierher bei</div>
+ <div>${l.trig.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div></div>`;
+};
+
+V.notiz=()=>{
+ const a=S.notizNr!=null?S.verarbeitet.find(x=>x.nr===S.notizNr):S.verarbeitet[S.verarbeitet.length-1];
+ if(!a)return `<div class="d2">Noch keine Aufnahme da.</div><div class="regel stark"></div>
+   <div class="p">Sobald eine verarbeitet ist, steht sie hier — mit Rohfassung und Zuordnung.</div>`;
+ const um=b=>`<span class="chip ${(S.roh?b==='roh':b==='rein')?'invers':''}" data-roh="${b==='roh'?1:0}" style="cursor:pointer;padding:1px 7px">${b==='roh'?'Roh':'Bereinigt'}</span>`;
+ return `<div class="z" style="padding:0"><span class="uhr">${a.uhr}</span>
+   <span class="t m">${kf(a.dauer)} s · ${Math.round(bytes(a.dauer)/1000)} kB</span>
+   <span>${um('rein')}${um('roh')}</span></div>
+ <div class="regel stark"></div>
+ <div class="p">${esc(S.roh?a.roh:a.rein)}</div>
+ <div class="regel"></div>
+ <div class="rahmen"><div class="m kursiv" style="margin-bottom:6px">Erkannt</div>
+  <div style="margin-bottom:7px">${a.schlag.map(s=>`<span class="chip">${esc(s)}</span>`).join('')}</div>
+  <div class="z" style="padding:1px 0"><span class="t u">${a.art==='tagebuch'?'Tagebuch, heutiger Eintrag':'#'+esc(a.ziel)}${a.art==='neu'?' · neu angelegt':''}</span>
+    <span class="re">${kf(a.score,2)}</span></div>
+  <div class="m" style="margin-bottom:6px">${esc(a.grund)}</div>
+  ${a.aufg.length?`<div class="m kursiv" style="margin:8px 0 3px">Aufgaben</div>
+    ${a.aufg.map(t=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t u">${esc(t)}</span></div>`).join('')}`:''}
+  <div class="regel eng"></div>
+  <div class="z" style="padding:1px 0"><span class="t m">Transkription</span><span class="re">conf ${kf(a.konf,2)}</span></div>
+  <div class="z" style="padding:1px 0"><span class="t m">Audio wird gelöscht</span><span class="re">${a.loesch}</span></div>
+ </div>`;
+};
+
+V.tagebuch=()=>{const w=S.tagebuch.reduce((a,p)=>a+wz(p.t),0);
+ if(S.werk)return `<div class="d1" style="font-size:22px">${datumZeile(0)}</div>
+  <div class="regel stark"></div><div class="p">Noch nichts eingetragen.</div>
+  <div class="m" style="margin-top:8px">Erzähl abends, was war — daraus wird der Tageseintrag.</div>`;
+ return `<div class="d1" style="font-size:22px">${datumZeile(S.tagOffset||0)}</div>
+ <div class="regel stark"></div>
+ ${S.tagebuch.map(p=>`<div style="display:flex;gap:11px;margin-bottom:11px">
+   <div class="mo" style="flex:none;width:38px;padding-top:3px">${p.uhr}</div>
+   <div class="p" style="flex:1">${esc(p.t)}</div></div>`).join('')}
+ ${S.tagebuchN&&S.tagebuchN>S.tagebuch.length?`<div class="m">… und ${S.tagebuchN-S.tagebuch.length} weitere Absätze</div>`:''}
+ <div class="regel"></div>
+ <div class="z"><span class="t m">${w} Wörter · ${S.tagebuchN||S.tagebuch.length} Absätze</span>
+   <span class="re">${S.zusammen?'zusammengeführt '+S.zusammen:'—'}</span></div>
+ <div class="z" style="margin-top:8px"><span class="t m">◀ Vortag</span><span class="re">Folgetag ▶</span></div>`;
+};
+
+V.kalender=()=>{const w=woche(),i0=(HEUTE.getDay()+6)%7;
+ if(!S.eingerichtet)return `<div class="d2">Kalender</div><div class="regel stark"></div>
+  <div class="p">Noch nicht mit dem Apple-Kalender verbunden.</div>
+  <div class="m" style="margin-top:8px">Die Verbindung wird auf dem Pi eingerichtet, nicht hier.</div>`;
+ return `<div class="d2">Woche</div><div class="m">KW ${kw(HEUTE)} · aus dem Apple-Kalender</div>
+ <div class="regel stark"></div>
+ ${w.map((d,i)=>{const t=KALENDER[i]||[],vg=i<i0;
+  return `<div class="${i===i0?'invers':''} ${vg?'verblasst':''}" style="padding:5px 8px;margin:0 -8px">
+    <div class="z" style="padding:0"><span class="t u"><b style="font-weight:600">${WK[d.getDay()]}</b> ${zw(d.getDate())}.${zw(d.getMonth()+1)}.</span>
+      <span class="re">${t.length?t.length+(t.length===1?' Termin':' Termine'):'—'}</span></div>
+    ${t.map(e=>`<div class="z" style="padding:2px 0 0"><span class="uhr">${e.u}</span><span class="t u">${esc(e.t)}</span></div>`).join('')}
+  </div>${i<6?'<div class="regel eng"></div>':''}`;}).join('')}`;
+};
+
+V.warteschlange=()=>{
+ const ges=S.warteschlange.reduce((a,x)=>a+bytes(x.dauer),0), frei=29800-S.sdMb;
+ const std=Math.round(frei/(32*3600/1000)*10)/10, pct=Math.round(S.sdMb/29800*100);
+ return `<div class="d2">Warteschlange</div>
+ <div class="m">${S.wlan?'verbunden mit pi5-brain.local'
+   :S.offlineSeit?'offline seit '+minSeit(S.offlineSeit):'noch nie verbunden'}</div>
+ <div class="regel stark"></div>
+ ${S.wlan?`<div class="p">Nichts wartet. Aufnahmen laufen direkt durch.</div>`
+  :!S.offlineSeit?`<div class="p">Der Pi ist noch nicht eingerichtet. Aufnahmen bleiben so lange
+     auf der Karte — verloren geht dabei nichts.</div>`
+  :`<div class="rahmen stark"><div class="u">Nächster Versuch in ${S.retry} s</div>
+    <div class="m" style="margin-top:2px">Aufnahmen bleiben auf der SD-Karte, bis der Pi wieder erreichbar ist.</div></div>`}
+ ${S.warteschlange.length?`<div class="regel"></div>${band(S.warteschlange.length+' Aufnahmen · '+Math.round(ges/1000)+' kB')}
+   ${S.warteschlange.slice(0,9).map((a,i)=>`<div class="z"><span class="uhr">${a.uhr}</span>
+     <span class="t u">${esc(a.kurz)}</span><span class="re">${kf(a.dauer)} s</span>
+     <span class="re m" style="width:66px;text-align:right">${i===0?'als nächstes':'wartet'}</span></div>`).join('')}
+   ${S.warteschlange.length>9?`<div class="m" style="margin-top:5px">… und ${S.warteschlange.length-9} weitere auf der Karte</div>`:''}`:''}
+ ${!S.eingerichtet&&!S.warteschlange.length?`<div class="regel"></div>
+   <div class="m">Karte leer · 29,8 GB frei · FAT32</div>`:`
+ <div class="regel"></div>
+ ${band('SD-Karte')}
+ <div class="meter" style="margin:4px 0 6px"><i style="width:${pct}%"></i></div>
+ <div class="z"><span class="t m">belegt</span><span class="re">${(S.sdMb/1000).toFixed(1).replace('.',',')} von 29,8 GB</span></div>
+ <div class="z"><span class="t m">Restreichweite</span><span class="re">${kf(std)} h Aufnahme</span></div>
+ <div class="z"><span class="t m">Format</span><span class="re">FAT32</span></div>`}`;
+};
+function minSeit(t){const m=Math.max(0,Math.round((Date.now()-t)/60000));
+  if(m<1)return 'unter 1 min';
+  if(m<90)return m+' min';
+  return kf(m/60)+' Stunden';}
+
+/* ── Panel: malen, Refresh, Geisterbild ─────────────────────────────────── */
+const blatt=$('#blatt'),scr=$('#screen'),geist=$('#geist'),wisch=$('#wisch');
+const html=()=>kopfleiste()+'<div class="inhalt">'+V[S.ansicht]()+'</div>'+fuss();
+const ausnote=()=>'<div class="ausnote"><span>Gerät aus</span><span>Bild bleibt ohne Strom stehen</span></div>';
+
+function malen(){
+  blatt.innerHTML=html()+(S.an?'':ausnote());
+  scr.classList.toggle('aus',!S.an);
+  scr.style.setProperty('--serif',S.serif?"'Literata','Iowan Old Style',Georgia,serif":"var(--sans)");
+  navi();messwerte();
+}
+function setzeGeist(alt){
+  if(!alt||S.partial===0){geist.style.display='none';geist.innerHTML='';return;}
+  geist.innerHTML=alt;geist.className=S.partial>6?'s2':'';geist.style.display='block';
+}
+function partial(fertig){
+  const alt=blatt.innerHTML;
+  wisch.style.display='block';wisch.classList.toggle('f',S.partial%2===0);
+  setTimeout(()=>{S.partial++;malen();setzeGeist(alt);},T.WISCH/2);
+  setTimeout(()=>wisch.style.display='none',T.WISCH);
+  setTimeout(()=>{messwerte();fertig&&fertig();},T.PARTIAL);
+}
+function voll(fertig){
+  [[0,1],[260,0],[520,1],[780,0],[1300,1],[1560,0]].forEach(([ms,a])=>
+    setTimeout(()=>scr.classList.toggle('inv',!!a),ms));
+  setTimeout(()=>{S.partial=0;malen();setzeGeist(null);},1040);
+  setTimeout(()=>{messwerte();fertig&&fertig();},T.VOLL);
+  log('epd','Vollrefresh '+kf(T.VOLL/1000)+' s · Geisterbild gelöscht');
+}
+function wechsel(id){if(S.ansicht===id)return;S.ansicht=id;partial();}
+
+/* ── Werkbank ───────────────────────────────────────────────────────────── */
+const STUFEN=['Mikrofon','SD-Puffer','Upload','Transkription','Aufräumen','Schlagwörter','Einsortieren','Vault','Rendern','Panel'];
+function log(m,t){const d=document.createElement('div');
+  d.innerHTML=stmp(new Date())+'  <b>'+m.padEnd(7)+'</b>  '+esc(t);
+  const l=$('#log');l.appendChild(d);l.scrollTop=l.scrollHeight;
+  while(l.children.length>200)l.removeChild(l.firstChild);}
+function stufenMalen(){$('#stufenliste').innerHTML=STUFEN.map(s=>`<div class="stufe"><span class="p"></span>${s}</div>`).join('');}
+function stufe(i){document.querySelectorAll('.stufe').forEach((el,j)=>{
+  el.classList.toggle('an',j===i);el.classList.toggle('ok',i>=0&&j<i);});}
+function messwerte(){
+  const tage=Math.max(1,Math.round(S.akku*0.115)),f=S.partial>=T.PMAX;
+  $('#messwerte').innerHTML=[['Akku',S.akku+' % · ~'+tage+' Tage'],['SHTC3','21,4 °C · 46 % rF'],
+   ['RTC',stmp(new Date()).slice(0,8)],['SD',(S.sdMb/1000).toFixed(1).replace('.',',')+' / 29,8 GB'],
+   ['RSSI',S.wlan?'−54 dBm':'offline'],['Refresh','Partial '+S.partial+'/'+T.PMAX+(f?' → fällig':'')]]
+   .map(([k,v],i)=>`<div class="mw${i===5&&f?' w':''}"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+function navi(){$('#navi').innerHTML=ANSICHTEN.map(a=>{let z='';
+  if(a.id==='eingang')z=(S.eingangN!=null?S.eingangN:S.verarbeitet.length)||'';
+  if(a.id==='warteschlange')z=S.warteschlange.length||'';
+  if(a.id==='tagebuch')z=(S.tagebuchN||S.tagebuch.length)||'';
+  return `<button data-ansicht="${a.id}" class="${S.ansicht===a.id?'an':''}"><span>${esc(a.t)}</span><span class="z">${z}</span></button>`;}).join('');}
+
+/* ── Pipeline ───────────────────────────────────────────────────────────── */
+let nr=0,tw=null,tz=null;
+function aufnehmen(){
+  if(S.laeuft)return; if(!S.an){log('sys','Gerät ist aus');return;}
+  S.laeuft=true;
+  S.werk=false;   // mit der ersten Aufnahme ist das Gerät kein Neugerät mehr
+  const a={...AUFNAHMEN[S.naechste%AUFNAHMEN.length]};S.naechste++;
+  a.nr=++nr;a.uhr=uhr(new Date());
+  const l=new Date();l.setDate(l.getDate()+30);a.loesch=zw(l.getDate())+'.'+zw(l.getMonth()+1)+'.';
+  stand();stufe(0);
+  log('vad','Sprachaktivität erkannt (−31 dBFS)');
+  log('rec','Aufnahme läuft · 16 kHz mono · ES8311');
+  const ov=$('#aufnahme');ov.classList.add('an');
+  const w=$('#a-welle');w.innerHTML=Array.from({length:46},()=>'<i style="height:3px"></i>').join('');
+  const bs=w.querySelectorAll('i');
+  tw=setInterval(()=>bs.forEach((b,i)=>{
+    const h=5+Math.abs(Math.sin(Date.now()/200+i*.66))*(14+(i%6)*8)+Math.random()*15;
+    b.style.height=Math.min(68,Math.round(h))+'px';}),90);
+  const t0=Date.now();
+  tz=setInterval(()=>{const s=(Date.now()-t0)/1000;$('#a-zeit').textContent=kf(s)+' s';
+    if(s>=a.dauer)stopp();},100);
+  function stopp(){
+    clearInterval(tw);clearInterval(tz);ov.classList.remove('an');
+    log('rec','gestoppt · '+kf(a.dauer)+' s · '+Math.round(bytes(a.dauer)/1000)+' kB');
+    stufe(1);
+    setTimeout(()=>{log('queue','→ /sd/stash/q/'+(0x1000+a.nr*0x2f3).toString(16)+'.wav');
+      S.sdMb+=Math.round(bytes(a.dauer)/1000/1000*10)/10;
+      S.wlan?verarbeiten(a):stauen(a);},T.QUEUE+60);
+  }
+  aufnehmen.stopp=stopp;
+}
+function stauen(a){S.warteschlange.push(a);
+  log('net','pi5-brain.local nicht erreichbar · Aufnahme bleibt auf der SD');
+  stufe(-1);S.laeuft=false;stand();partial();}
+
+function verarbeiten(a,still){
+  S.laeuft=true;stand();
+  const kb=Math.round(bytes(a.dauer)/1000),up=upMs(a.dauer),wh=whMs(a.dauer),
+        wo=wz(a.rein),fu=(a.roh.match(/\b(ähm|äh|also|warte|halt|eigentlich|ja)\b/gi)||[]).length,bl=bleMs(RKB);
+  const schritte=[
+   [T.PROBE,2,()=>log('net','pi5-brain.local erreichbar · RSSI −54 dBm')],
+   [up,2,()=>log('net','Upload '+kb+' kB in '+up+' ms')],
+   [wh,3,()=>log('whisper','faster-whisper small int8 · '+kf(wh/1000)+' s · '+wo+' Wörter · conf '+kf(a.konf,2))],
+   [T.CLEAN,4,()=>log('clean',fu+' Füllwörter raus · Sätze normalisiert')],
+   [T.KEYS,5,()=>log('keys',a.schlag.join(' · '))],
+   [T.ROUTE,6,()=>{
+     if(a.art==='neu'){log('route','kein Treffer über Schwelle 0.62 · bestes Ziel #'+a.best+' mit '+kf(a.score,2));
+       log('route','neue Liste #'+a.ziel+' angelegt');}
+     else if(a.art==='tagebuch')log('route','Tagebuch · Score '+kf(a.score,2)+' · an heutigen Eintrag angehängt');
+     else{const l=S.listen[a.ziel];log('route','#'+a.ziel+' · Score '+kf(a.score,2)+' · '+(l&&l.art==='fest'?'feste Liste':'gewachsene Liste'));}}],
+   [T.TASKS,6,()=>{if(a.aufg.length)log('tasks',a.aufg.length+(a.aufg.length===1?' Aufgabe':' Aufgaben')+' → Apple Erinnerungen (CalDAV)');}],
+   [T.VAULT,7,()=>{log('vault',(a.art==='tagebuch'
+     ?'~/Obsidian/stash/Tagebuch/'+HEUTE.getFullYear()+'-'+zw(HEUTE.getMonth()+1)+'-'+zw(HEUTE.getDate())+'.md'
+     :'~/Obsidian/stash/Listen/'+a.ziel+'.md')+' (+1)');uebernehmen(a);}],
+   [T.RENDER,8,()=>log('render','1-bit 480×800 · '+RKB+' kB')],
+   [bl,9,()=>log('push','BLE → ESP32-S3 · '+bl+' ms')]];
+  let i=0;(function w(){
+    if(i>=schritte.length){partial(()=>{
+      log('epd','Partial-Refresh '+T.PARTIAL+' ms · Zähler '+S.partial+'/'+T.PMAX);
+      if(S.partial>=T.PMAX)log('epd','Vollrefresh fällig');
+      stufe(-1);S.laeuft=false;stand();
+      if(!still){S.ansicht='notiz';S.notizNr=a.nr;S.roh=false;malen();}});return;}
+    const[ms,st,f]=schritte[i++];stufe(st);setTimeout(()=>{f();w();},Math.max(40,ms));})();
+}
+function uebernehmen(a){
+  S.verarbeitet.push(a);
+  if(a.art==='neu')S.listen[a.ziel]={art:'gewachsen',anz:1,seit:zw(HEUTE.getDate())+'.'+zw(HEUTE.getMonth()+1)+'.',neu:true,trig:a.schlag.slice()};
+  else if(a.art==='tagebuch'){S.tagebuch.push({uhr:a.uhr,t:a.rein});S.zusammen=uhr(new Date());S.listen['tagebuch'].anz++;}
+  else if(S.listen[a.ziel])S.listen[a.ziel].anz++;
+  a.aufg.forEach(t=>S.erinnerungen.push({t,f:false}));
+  S.akku=Math.max(4,S.akku-1);
+}
+function stau(){
+  if(!S.wlan||!S.warteschlange.length||S.laeuft)return;
+  const a=S.warteschlange.shift();
+  log('net','Warteschlange · '+(S.warteschlange.length+1)+' offen · beginne mit '+a.uhr);
+  verarbeiten(a,S.warteschlange.length>0);
+  const iv=setInterval(()=>{if(!S.laeuft){clearInterval(iv);setTimeout(stau,T.STAU);}},200);
+}
+
+/* ── Bedienung ──────────────────────────────────────────────────────────── */
+function stand(){
+  const b=$('#b-rec');b.disabled=!S.an;
+  b.firstChild.textContent=S.laeuft?'■ läuft …':'▸ Sprachnotiz aufnehmen';
+  $('#b-rec-n').textContent=S.laeuft?'Ablauf läuft':'seitliche BOOT-Taste · nächste: '+AUFNAHMEN[S.naechste%AUFNAHMEN.length].kurz;
+  $('#b-wlan').textContent=S.wlan?'WLAN aus':'WLAN an';
+  $('#b-aus').textContent=S.an?'Gerät aus':'Gerät an';
+  $('#brain').classList.toggle('weg',!S.wlan);
+  $('#brain-t').textContent=S.wlan?'pi5-brain · online':'pi5-brain · nicht erreichbar';
+}
+$('#navi').addEventListener('click',e=>{const b=e.target.closest('[data-ansicht]');if(b&&S.an)wechsel(b.dataset.ansicht);});
+blatt.addEventListener('click',e=>{
+  if(!S.an||S.laeuft)return;
+  const r=e.target.closest('[data-roh]');if(r){S.roh=r.dataset.roh==='1';partial();return;}
+  const n=e.target.closest('[data-notiz]');if(n){S.zurueck=S.ansicht;S.notizNr=+n.dataset.notiz;S.ansicht='notiz';S.roh=false;partial();return;}
+  const a=e.target.closest('[data-ansicht]');if(a){S.zurueck=S.ansicht;wechsel(a.dataset.ansicht);}
+});
+const rec=()=>S.laeuft?(aufnehmen.stopp&&aufnehmen.stopp()):aufnehmen();
+$('#b-rec').addEventListener('click',rec);
+$('#k-rec').addEventListener('click',rec);
+$('#k-m').addEventListener('click',oeffnen);
+/* Drehknopf: links/rechts blättern, drücken öffnet oder schließt.
+   Aufnehmen liegt auf der seitlichen BOOT-Taste und ist immer erreichbar. */
+function oeffnen(){
+  if(!S.an||S.laeuft)return;
+  if(tief()){wechsel(S.zurueck||'heute');return;}
+  if((S.ansicht==='eingang'||S.ansicht==='heute')&&S.verarbeitet.length){
+    S.zurueck=S.ansicht;S.notizNr=S.verarbeitet[S.verarbeitet.length-1].nr;S.roh=false;
+    S.ansicht='notiz';partial();return;}
+  if(S.ansicht==='listen'){S.zurueck='listen';S.ansicht='detail';partial();}
+}
+$('#k-l').addEventListener('click',()=>blaettern(-1));
+$('#k-r').addEventListener('click',()=>blaettern(1));
+function blaettern(d){if(!S.an||S.laeuft)return;
+  const i=ANSICHTEN.findIndex(a=>a.id===S.ansicht);
+  wechsel(ANSICHTEN[(i+d+ANSICHTEN.length)%ANSICHTEN.length].id);}
+$('#b-voll').addEventListener('click',()=>{if(S.an&&!S.laeuft)voll();});
+$('#b-aus').addEventListener('click',()=>{if(S.laeuft)return;S.an=!S.an;
+  log('epd',S.an?'Panel aktiv':'Panel stromlos · Bild bleibt stehen');malen();stand();});
+$('#b-morgen').addEventListener('click',()=>heuteForm(true));
+$('#b-uebersicht').addEventListener('click',()=>heuteForm(false));
+function heuteForm(m){
+  S.morgen=m;
+  $('#b-morgen').classList.toggle('an',m);$('#b-uebersicht').classList.toggle('an',!m);
+  if(S.ansicht!=='heute'){S.ansicht='heute';}
+  S.an&&!S.laeuft?partial():malen();
+}
+$('#b-serif').addEventListener('click',()=>schrift(true));
+$('#b-sans').addEventListener('click',()=>schrift(false));
+function schrift(s){S.serif=s;$('#b-serif').classList.toggle('an',s);$('#b-sans').classList.toggle('an',!s);
+  S.an&&!S.laeuft?partial():malen();}
+$('#b-wlan').addEventListener('click',()=>{
+  if(S.laeuft)return;S.wlan=!S.wlan;
+  if(S.wlan){S.offlineSeit=null;log('net','WLAN verbunden · RSSI −54 dBm');stand();
+    S.warteschlange.length?setTimeout(stau,400):partial();}
+  else{S.offlineSeit=Date.now();S.retry=T.RETRY;log('net','WLAN getrennt · Aufnahmen bleiben in der Warteschlange');
+    stand();S.ansicht='warteschlange';partial();}
+});
+$('#b-werk').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  Object.assign(S,{werk:true,phase:null,ansicht:'heute',zurueck:null,notizNr:null,roh:false,
+    wlan:false,an:true,partial:0,naechste:0,verarbeitet:[],warteschlange:[],offlineSeit:null,
+    listen:{einkauf:{art:'fest',anz:0,trig:[]},tagebuch:{art:'fest',anz:0,trig:[]},
+            ideen:{art:'fest',anz:0,trig:[]},termine:{art:'fest',anz:0,trig:[]}},
+    tagebuch:[],tagebuchN:0,eingangN:0,eingangTag:null,tagOffset:0,erinnerungen:[],
+    zusammen:null,akku:100,sdMb:0,retry:T.RETRY,simLauf:null,nacht:null,abend:null,tag2:null,
+    morgen:true,eingerichtet:false});
+  nr=0;$('#log').innerHTML='';$('#s-out').innerHTML='';$('#s-nacht').disabled=true;
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.remove('an'));
+  setzeGeist(null);stufe(-1);malen();stand();
+  log('sys','Werkseinstellung · alle Daten gelöscht');
+  log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
+  log('net','pi5-brain.local nicht eingerichtet');
+  log('sys','bereit · Seitentaste drücken');
+});
+
+$('#b-reset').addEventListener('click',()=>{if(S.laeuft)return;
+  Object.assign(S,{ansicht:'heute',notizNr:null,roh:false,wlan:true,an:true,partial:0,naechste:0,
+   verarbeitet:VORHER.map(a=>({...a})),warteschlange:[],offlineSeit:null,
+   listen:JSON.parse(JSON.stringify(LISTEN)),tagebuch:TAGEBUCH.slice(),
+   erinnerungen:ERINNERUNGEN.map(e=>({...e})),zusammen:null,akku:74,sdMb:412,retry:T.RETRY,simLauf:null,nacht:null,abend:null,morgen:true,
+   /* Zähler des Werkszustands zurücknehmen, sonst zeigt der Demo-Stand 0 Aufnahmen. */
+   phase:null,tag2:null,eingangN:null,eingangTag:null,tagebuchN:null,tagOffset:0});
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.remove('an'));
+  $('#s-nacht').disabled=true;
+  heuteForm(true);
+  $('#s-out').innerHTML='';
+  S.werk=false;S.eingerichtet=true;nr=0;$('#log').innerHTML='';setzeGeist(null);stufe(-1);malen();stand();log('sys','Demo-Stand geladen');});
+
+/* ── Regler ──────────────────────────────────────────────────────────── */
+const rN=$('#s-n'),rT=$('#s-tb'),rS=$('#s-sw'),rL=$('#s-lern');
+function reglerText(){
+  $('#s-n-v').textContent=rN.value;
+  $('#s-tb-v').textContent=rT.value+' %';
+  $('#s-sw-v').textContent=(rS.value/100).toFixed(2).replace('.',',');
+}
+[rN,rT,rS].forEach(r=>r.addEventListener('input',reglerText));
+reglerText();
+$('#s-run').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  const an=+rN.value, tba=+rT.value, sw=rS.value/100, le=rL.checked;
+  const r=simuliere(an,tba,sw,le);
+  S.listen=r.L; S.simLauf=r; S.ansicht='listen';
+  $('#s-out').innerHTML=
+    `<div><b>${an}</b> Aufnahmen · ${r.tb} Tagebuch · ${r.rest} einzusortieren</div>`+
+    `<div>Listen <b>${r.vorher}</b> → <b class="${r.nachher>r.vorher*2?'warn':''}">${r.nachher}</b>`+
+    `  ·  neu <b>${r.neu}</b></div>`+
+    `<div>davon mit einem Eintrag: <b>${r.einzel}</b></div>`+
+    `<div>größte: #${esc(r.groesste[0])} (${r.groesste[1]})</div>`+
+    `<div style="margin-top:5px">bester Treffer je Aufnahme:</div>`+
+    Object.entries(r.hist).sort().map(([k,v])=>`<div>&nbsp;&nbsp;${k.replace('.',',')} · ${v}×${+k>=sw?' <b>trifft</b>':''}</div>`).join('')+
+    `<div style="margin-top:4px">Bei drei Schlagwörtern gibt es nur 0 · 0,33 · 0,67 · 1,00 — dazwischen ändert die Schwelle nichts.</div>`+
+    (r.neu>r.rest*0.4?`<div class="warn" style="margin-top:5px">Mehr als jede dritte Aufnahme legt eine neue Liste an.</div>`:'');
+  S.nacht=null;S.abend=null;$('#s-nacht').disabled=false;
+  log('sim',an+' Aufnahmen · Schwelle '+(sw).toFixed(2)+(le?' · lernend':'')+' → '+r.nachher+' Listen, '+r.neu+' neu');
+  partial();
+});
+
+/* Vier Zustände eines Tages, durchklickbar. */
+function phase(n){
+  if(S.laeuft)return;
+  S.phase=n;S.werk=false;S.eingerichtet=true;
+  document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===n));
+  if(n===0){
+    S.wlan=false;S.offlineSeit=Date.now()-7*3600e3;S.retry=T.RETRY;
+    S.abend=null;S.nacht=null;S.simLauf=null;S.listen=JSON.parse(JSON.stringify(LISTEN));
+    S.warteschlange=Array.from({length:200},(_,i)=>({
+      nr:-100-i,kurz:['Überdachung','Heide Park','KI-Ärger','Tagebuch'][i%4],
+      uhr:zw(7+Math.floor(i/14))+':'+zw((i*7)%60),dauer:14,schlag:[],aufg:[],rein:'',roh:''}));
+    S.sdMb=412+Math.round(200*bytes(14)/1e6);
+    S.verarbeitet=[];S.eingangN=200;S.eingangTag='auf der Karte';
+    S.tagebuch=[];S.tagebuchN=0;
+    S.ansicht='warteschlange';
+    log('net','WLAN getrennt · unterwegs seit 7 Stunden');
+  }
+  if(n===1){
+    S.wlan=true;S.warteschlange=[];S.offlineSeit=null;
+    const a=tagUnterwegs();
+    S.listen=a.L;S.abend=a;S.nacht=null;
+    S.simLauf={tb:a.tb,rest:a.rest,nachher:Object.keys(a.L).length};
+    S.sdMb=412;
+    S.verarbeitet=EINGANG_MO.map(([u,d,z,t],i)=>({nr:200+i,uhr:u,dauer:d,konf:0.93,art:'liste',ziel:z,
+      score:0.8,grund:'vorläufig abgelegt, der Nachtlauf steht noch aus',schlag:[z],rein:t,roh:t,aufg:[],loesch:'07.10.'}));
+    S.eingangN=200;S.eingangTag='von unterwegs';S.tagOffset=0;
+    S.tagebuch=TAGEBUCH_MO.map(([u,t])=>({uhr:u,t}));S.tagebuchN=112;
+    S.ansicht='heute';
+    log('net','zu Hause · Warteschlange 200 Aufnahmen · Aufholen '+a.minuten+' min');
+    log('route','vorläufig einsortiert · '+a.neu.length+' Listen neu');
+    $('#s-out').innerHTML=`<div><b>200</b> Aufnahmen · Aufholen <b>${a.minuten} min</b></div>`+
+      `<div>Listen ${Object.keys(LISTEN).length} → <b>${Object.keys(a.L).length}</b></div>`;
+  }
+  if(n===2){
+    if(!S.abend){phase(1);S.phase=2;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===2));}
+    const vor=Object.keys(S.listen).length;
+    S.nacht=nachtlauf(S.listen);
+    log('nacht',vor+' → '+Object.keys(S.listen).length+' Listen · '+S.nacht.length+' zusammengelegt');
+    S.ansicht='listen';
+    $('#s-out').innerHTML+=`<div style="margin-top:5px"><b>Nacht</b>: ${vor} → ${Object.keys(S.listen).length} Listen</div>`;
+  }
+  if(n===4){
+    if(!S.nacht){phase(3);S.phase=4;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===4));}
+    S.tag2=tagZwei();
+    S.verarbeitet=TAG2.filter(x=>x[1]==='fest').slice(0,7).map(([th,,t],i)=>({nr:300+i,
+      uhr:zw(8+i*2)+':'+zw((i*17)%60),dauer:9+i,konf:0.95,art:'liste',ziel:th.toLowerCase(),score:0.9,
+      grund:'vorläufig abgelegt',schlag:[th.toLowerCase()],rein:t,roh:t,aufg:[],loesch:'08.10.'}));
+    S.eingangN=100;S.eingangTag='heute, zu Hause';S.tagOffset=1;
+    S.tagebuch=TAGEBUCH_DI.map(([u,t])=>({uhr:u,t}));S.tagebuchN=58;
+    S.ansicht='heute';
+    log('net','Tag 2 · 100 Aufnahmen · zu Hause verarbeitet');
+  }
+  if(n===5){
+    if(!S.tag2){phase(4);S.phase=5;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===5));}
+    const vor=Object.keys(S.listen).length;
+    const z=nachtlauf(S.listen);S.nacht=(S.nacht||[]).concat(z);
+    log('nacht','Tag 2 verdichtet · '+z.length+' Listen zusammengelegt · 3 offene Fragen geklärt');
+    S.eingangTag='gestern, zu Hause';S.ansicht='heute';
+  }
+  if(n===3){
+    if(!S.nacht){phase(2);S.phase=3;document.querySelectorAll('#ablauf button').forEach(b=>b.classList.toggle('an',+b.dataset.phase===3));}
+    S.morgen=true;S.eingangTag='gestern, von unterwegs';S.ansicht='heute';
+    $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
+  }
+  stand();partial();
+}
+document.querySelectorAll('#ablauf button').forEach(b=>b.addEventListener('click',()=>phase(+b.dataset.phase)));
+
+$('#s-tag').addEventListener('click',()=>{
+  if(S.laeuft)return;
+  const a=tagUnterwegs();
+  S.listen=a.L;S.abend=a;S.simLauf={tb:a.tb,rest:a.rest,nachher:Object.keys(a.L).length};
+  S.ansicht='heute';$('#s-nacht').disabled=false;
+  $('#s-out').innerHTML=`<div><b>200</b> Aufnahmen aus der Warteschlange</div>`+
+    `<div>Aufholen: <b>${a.minuten} min</b> nach dem Heimkommen</div>`+
+    `<div>Listen ${Object.keys(LISTEN).length} → <b>${Object.keys(a.L).length}</b> · neu ${a.neu.length}</div>`+
+    `<div>davon mit einer Notiz: ${a.einzeln}</div>`+
+    a.top.map(([k,v])=>`<div>&nbsp;&nbsp;#${esc(k)} ${v}</div>`).join('');
+  log('net','Warteschlange · 200 Aufnahmen · Aufholen '+a.minuten+' min');
+  log('route','vorläufig einsortiert · '+a.neu.length+' Listen neu');
+  partial();
+});
+
+$('#s-nacht').addEventListener('click',()=>{
+  if(!S.simLauf||S.laeuft)return;
+  const vor=Object.keys(S.listen).length;
+  S.nacht=nachtlauf(S.listen);
+  const nach=Object.keys(S.listen).length;
+  $('#s-out').innerHTML+=`<div style="margin-top:6px"><b>Nachtlauf</b></div>`+
+    `<div>Listen <b>${vor}</b> → <b>${nach}</b> · ${S.nacht.length} zusammengelegt</div>`;
+  log('nacht',vor+' → '+nach+' Listen · '+S.nacht.length+' zusammengelegt');
+  S.ansicht='heute';S.morgen=true;
+  $('#b-morgen').classList.add('an');$('#b-uebersicht').classList.remove('an');
+  partial();
+});
+
+function skalieren(){
+  const s=window.innerWidth<=900;
+  const h=(s?window.innerHeight*0.62:$('#mitte').clientHeight)-198;  // Knebel, Ablaufleiste, Unterbau
+  const w=(s?window.innerWidth:$('#mitte').clientWidth)-36;
+  const k=Math.max(0.30,Math.min(1,h/800,w/480));
+  $('#rahmen').style.transform='scale('+k+')';
+  $('#buehne').style.width=Math.round(480*k)+'px';
+  $('#buehne').style.height=Math.round(800*k)+'px';
+}
+window.addEventListener('resize',skalieren);
+setInterval(()=>{
+  messwerte();
+  if(S.an&&!S.laeuft){const k=blatt.querySelector('.kopfleiste');if(k)k.outerHTML=kopfleiste();}
+  if(!S.wlan){S.retry--;if(S.retry<=0){S.retry=T.RETRY;log('net','Versuch · pi5-brain.local nicht erreichbar');}
+    if(S.an&&S.ansicht==='warteschlange'&&!S.laeuft){const i=blatt.querySelector('.inhalt');if(i)i.innerHTML=V.warteschlange();}}
+},1000);
+
+stufenMalen();stufe(-1);malen();stand();skalieren();
+log('sys','Werkseinstellung · keine Daten auf dem Gerät');
+log('sys','Panel 480 × 800 · 1 Bit · ESP32-S3-ePaper-3.97');
+log('net','pi5-brain.local nicht eingerichtet');
+log('sys','bereit · Seitentaste drücken');
+</script>
+</body>
+</html>

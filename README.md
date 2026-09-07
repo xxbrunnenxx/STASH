@@ -9,20 +9,27 @@ Kalender und Erinnerungen.
 
 Alles läuft lokal. Kein Audio verlässt das Haus.
 
+Gebaut als Alltagshilfe, nicht als Produktivitätswerkzeug: Es muss an schlechten Tagen genauso
+funktionieren wie an guten. Was daraus folgt, steht unter
+[Wofür das gebaut ist](#wofür-das-gebaut-ist).
+
 *Ein Stash ist der Vorrat, den man sich weglegt.*
 
-**Status:** Spezifikation. Es gibt noch keinen lauffähigen Code — dieses Dokument beschreibt, was
-gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
-[Showcase erzeugen](#showcase-erzeugen)).
+**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Was noch fehlt, ist
+Hardware unter dem Code: Die Pin-Nummern des Boards stehen im öffentlichen Datenblatt nicht und
+müssen aus dem Schaltplan eingetragen werden — siehe [firmware/README.md](firmware/README.md).
+Der Brain-Teil läuft ohne Gerät, [brain/README.md](brain/README.md) zeigt wie.
 
 ---
 
 ## Inhalt
 
+- [Wofür das gebaut ist](#wofür-das-gebaut-ist)
 - [Systemüberblick](#systemüberblick)
 - [Stückliste](#stückliste)
 - [Showcase erzeugen](#showcase-erzeugen)
 - [Repo-Struktur](#repo-struktur)
+- [Bauen und betreiben](#bauen-und-betreiben)
 - [Harte Regeln](#harte-regeln)
 - [Design](#design)
 - [Die acht Geräte-Ansichten](#die-acht-geräte-ansichten)
@@ -35,6 +42,30 @@ gebaut wird, und dient zugleich als Bauauftrag für den Coding-Agent (siehe
 - [Lizenz](#lizenz)
 
 ---
+
+## Wofür das gebaut ist
+
+STASH ist kein Produktivitätswerkzeug. Es ist eine Alltagshilfe, und die Regeln weiter unten sind
+deshalb keine Geschmacksfragen — sie folgen alle aus einer Anforderung: **Es muss an schlechten
+Tagen genauso funktionieren wie an guten.** Konkret:
+
+- **Zwischen Gedanke und Ablage darf nichts liegen.** Entsperren, App suchen, Ordner wählen,
+  tippen — jeder dieser Schritte ist eine Stelle, an der die Notiz verloren geht. Deshalb ein
+  eigenes Gerät, das nichts anderes kann, und ein Knopf statt einer Oberfläche.
+- **Einsortieren ist Maschinenarbeit.** „In welche Liste gehört das?" ist genau die Frage, an der
+  eine Notiz liegen bleibt. Sie wird nicht gestellt.
+- **Man muss nicht druckreif sprechen.** Abschweifen, neu ansetzen, Details nachschieben — das
+  fängt die bereinigte Fassung auf. Die rohe bleibt daneben stehen, damit nichts wegfällt.
+- **Das Gerät fordert nichts.** Keine Benachrichtigung, kein rotes Fälligkeitszeichen, keine
+  Serie, die reißen kann. Ein Werkzeug, an dem man scheitern kann, wird irgendwann gemieden — und
+  fehlt genau dann, wenn es gebraucht wird. Dieses hier wartet.
+- **Liegengebliebenes geht von selbst.** Eingeschlafene Projekte dürfen sich nicht zu einer Wand
+  aus offenen Posten stapeln. Listen verblassen und bieten ihre Archivierung an.
+- **Protokolliert wird, was war — nicht, wie es war.** Gemacht, gewesen, aufgefallen. Ein
+  sachlicher Nachweis des Tages ist nützlich, eine Benotung des Tages ist es nicht.
+- **Es bleibt im Haus.** Frei reden kann man nur in etwas, das nichts weitergibt.
+
+Diese Punkte sind der Grund für das Gerät. Wer einen davon wegverhandelt, baut ein anderes.
 
 ## Systemüberblick
 
@@ -63,21 +94,28 @@ Aufnahmen landen erst dort und werden abgearbeitet, sobald der Pi wieder erreich
 **Gerät:** [Waveshare ESP32-S3-ePaper-3.97](https://docs.waveshare.com/ESP32-S3-ePaper-3.97)
 (SKU 33552 / 33810 EN / 33811 Kit)
 
-Diese Angaben stammen aus dem Datenblatt. Nichts davon erfinden oder ändern:
+Diese Angaben stammen aus dem Datenblatt. Nichts davon erfinden oder ändern. Die Spalte *Quelle*
+sagt, was dort wörtlich steht und was Annahme ist — was nicht bestätigt ist, darf nirgends als
+Tatsache auftauchen:
 
-| Komponente | Details |
-|---|---|
-| SoC | ESP32-S3-WROOM-1-N16R8, 16 MB Flash, 8 MB PSRAM, 240 MHz |
-| Display | E-Paper 800 × 480, schwarz/weiß — **hochkant benutzt: 480 breit × 800 hoch** |
-| Audio | Mikrofon, ES8311 Codec, NS4150B Verstärker → **das Gerät nimmt selbst auf** |
-| Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** |
-| Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss |
-| Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU |
-| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C |
-| Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT |
-| Funk | 2,4 GHz WLAN (b/g/n), BLE 5 |
+| Komponente | Details | Quelle |
+|---|---|---|
+| SoC | ESP32-S3-WROOM-1-N16R8, 16 MB Flash, 8 MB PSRAM, 240 MHz | bestätigt |
+| Display | E-Paper 800 × 480 — **hochkant benutzt: 480 breit × 800 hoch** | bestätigt |
+| Farbtiefe | 1 Bit, schwarz/weiß | **angenommen** — das Datenblatt sagt nur „high contrast" |
+| Audio ein | Mikrofon, ES8311 Codec → **das Gerät nimmt selbst auf** („voice capture") | bestätigt |
+| Audio aus | NS4150B Verstärker, MX1.25 Lautsprecher-Anschluss | bestätigt, **bislang ungenutzt** |
+| Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** | bestätigt |
+| Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss | bestätigt |
+| Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU | bestätigt |
+| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C | bestätigt |
+| Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT | bestätigt |
+| Funk | 2,4 GHz WLAN (b/g/n), BLE 5 (LE) | bestätigt |
 
-Die drei Richtungen des Drehknopfs sind die komplette Bedienung.
+**Belegung.** Der Drehknopf blättert und öffnet: `◀ zurück · ● öffnen · ▶ weiter`. Das Aufnehmen
+liegt auf der seitlichen BOOT-Taste und ist dadurch aus jeder Ansicht erreichbar, ohne vorher
+irgendwohin navigieren zu müssen — genau das verlangt „Knopf drücken, drauflosreden, fertig".
+PWR bleibt der Stromversorgung vorbehalten.
 
 **Brain:** Raspberry Pi 5, 16 GB RAM, 1 TB NVMe-SSD, aktive Kühlung.
 
@@ -108,13 +146,48 @@ Der Showcase ist **nicht** die Firmware und **nicht** das Pi-Setup.
 ```
 stash/
 ├─ README.md              dieses Dokument (Spezifikation + Bauauftrag)
-├─ LICENSE
+├─ LICENSE                fehlt noch, siehe Lizenz
 ├─ showcase/
-│  └─ stash-showcase.html
-├─ firmware/              ESP-IDF, noch leer
-├─ brain/                 Pi-Dienste, noch leer
+│  └─ stash-showcase.html bedienbare Simulation, ein File, kein Build
+├─ firmware/              ESP-IDF-Projekt für den ESP32-S3
+│  ├─ README.md           Installation, Pinbelegung, Flashen
+│  └─ main/               Aufnahme · SD-Warteschlange · Upload · Panel
+├─ brain/                 die Dienste auf dem Pi 5
+│  ├─ README.md           Installation, Konfiguration, systemd
+│  ├─ stash/              Transkription · Aufräumen · Einsortieren · Vault · Renderer
+│  └─ systemd/            Dienst und Nacht-Timer
 └─ gehaeuse/              STL/STEP, noch leer
 ```
+
+**Die Arbeitsteilung.** Das Gerät kann vier Dinge: aufnehmen, auf die Karte puffern, hochladen,
+anzeigen. Es layoutet nichts und entscheidet nichts — der Pi schickt ein fertiges 1-Bit-Bild,
+480 × 800. Umbruch, Verdichtung und die Frage, was auf die Seite passt, gehören dorthin, wo der
+ganze Bestand liegt, nicht auf einen Mikrocontroller.
+
+Übertragen wird beides über WLAN, in eine Richtung die Aufnahme, in die andere das Bild. Der
+Systemüberblick nennt WLAN *oder* BLE; gebaut ist ein Weg, der beides trägt, statt zweier halber.
+BLE bleibt für den Fall interessant, dass kein WLAN da ist, aber ein Telefon — das ist eine eigene
+Ausbaustufe.
+
+## Bauen und betreiben
+
+Zwei Teile, zwei Anleitungen. Jede sagt nicht nur, was einzutippen ist, sondern was der Schritt
+bewirkt — Anleitungen, die man nur abschreibt, helfen beim nächsten Fehler nicht.
+
+| Teil | Anleitung | Kurz |
+|---|---|---|
+| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pins aus dem Schaltplan in `idf.py menuconfig`, dann `idf.py flash monitor` |
+| Brain | [brain/README.md](brain/README.md) | `python3 -m venv .venv && pip install -e .`, Konfiguration nach `~/.config/stash/stash.toml`, `systemctl enable --now stash-brain` |
+
+Der Brain-Teil braucht das Gerät nicht. Eine beliebige Sprachaufnahme reicht, um den ganzen Weg zu
+sehen:
+
+```bash
+curl -F "datei=@probe.wav" http://pi5-brain.local:8080/v1/notiz
+curl -o heute.png "http://pi5-brain.local:8080/v1/bild?ansicht=heute&format=png"
+```
+
+Das zweite Bild ist genau das, was auf dem E-Paper landet — nur als PNG statt als Bitstrom.
 
 ## Harte Regeln
 
@@ -177,7 +250,7 @@ Unter 1100 px darf die rechte Spalte unter das Gerät rutschen. Der Screen bleib
 
 Jede hat oben eine dünne Statusleiste (STASH · Warteschlangen-Zähler · WLAN · Akku · Uhrzeit,
 Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Drehknopf-Belegung
-`◀ zurück   ● aufnehmen   ▶ weiter`.
+`◀ zurück   ● öffnen   ▶ weiter`.
 
 1. **Heute** — Datum groß in Literata, darunter durch Linien getrennt: nächste Kalendertermine,
    fällige Erinnerungen mit Kästchen, Eingangs-Zähler mit Anriss der letzten Notiz, Tagebuch-Zähler.
@@ -187,7 +260,8 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
    - *fest*: `#einkauf`, `#tagebuch`, `#ideen`, `#termine` — die verschwinden nie
    - *gewachsen*: `#überdachung`, `#pv-anlage`, `#gehäuse` (mit „neu"-Markierung), `#obsidian`,
      jeweils mit Anzahl und Anlagedatum
-   - *verblasst*: eine Liste ohne Einträge seit 63 Tagen, mit Vorschlag zum Archivieren
+   - *verblasst*: eine Liste ohne Einträge seit 63 Tagen, mit Vorschlag zum Archivieren —
+     Eingeschlafenes soll von selbst gehen, statt sich als offener Posten anzusammeln
 4. **Listen-Detail** (`#überdachung`) — Einträge mit Datum, Aufgaben mit Kästchen. **Ganz unten die
    Trigger-Wörter, die in diese Liste einsortieren** — das ist die Transparenz-Anforderung, die darf
    nicht fehlen.
@@ -203,7 +277,9 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 
 ## Die Pipeline
 
-Der Weg einer Aufnahme, und im Showcase das Herzstück.
+Der Weg einer Aufnahme, und im Showcase das Herzstück. Entscheidend ist, was *nicht* passiert:
+Es wird nie gefragt, wohin die Notiz gehört. Einsortiert wird ohne Rückfrage, und die Ansichten 4
+und 5 machen hinterher nachvollziehbar, warum es so ausgefallen ist.
 
 ```
 Mikrofon → SD-Puffer → Upload → Transkription → Aufräumen → Schlagwörter
@@ -224,18 +300,20 @@ Log-Format `HH:MM:SS.mmm  modul  text`, monospace:
 14:07:31.884  queue    → /sd/stash/q/0f3a.wav
 14:07:32.010  net      pi5-brain.local erreichbar · RSSI −54 dBm
 14:07:32.402  net      Upload 310 kB in 392 ms
-14:07:36.610  whisper  faster-whisper small int8 · 4,2 s · 47 Wörter · conf 0.94
+14:07:36.610  whisper  faster-whisper small int8 · 4,2 s · 25 Wörter · conf 0.94
 14:07:37.240  clean    11 Füllwörter raus · Sätze normalisiert
 14:07:37.980  keys     überdachung · material · bestellen
 14:07:37.984  route    #überdachung · Score 1.00 · feste Liste
 14:07:38.090  tasks    2 Aufgaben → Apple Erinnerungen (CalDAV)
 14:07:38.310  vault    ~/Obsidian/stash/Listen/überdachung.md (+1)
 14:07:38.520  render   1-bit 480×800 · 47 kB
-14:07:38.728  push     BLE → ESP32-S3 · 208 ms
+14:07:38.728  push     BLE → ESP32-S3 · 533 ms
 14:07:39.070  epd      Partial-Refresh 340 ms · Zähler 7/12
 ```
 
 > Alle Zeitwerte sind geschätzt und stehen als benannte Konstanten oben im Script, mit Kommentar.
+> Die Zahlen sind voneinander abgeleitet — Dateigröße aus der Dauer, Upload aus dem Durchsatz,
+> Whisper aus dem Echtzeitfaktor, die Wortzahl aus dem Transkript — damit sie zueinander passen.
 > Sie werden ersetzt, sobald Whisper das erste Mal echt auf dem Pi läuft.
 
 **Mindestens fünf verschiedene Demo-Aufnahmen**, die bei wiederholtem Drücken durchrotieren — jede
@@ -272,15 +350,19 @@ Selbstbau, eine PV-Anlage mit Datenauswertung, 3D-Druck fürs Gehäuse, Obsidian
 Termine.
 
 Die rohen Transkripte müssen wirklich roh klingen — Ähms, Selbstkorrekturen, halbe Sätze,
-Nachschieben von Details. Der Kontrast zur bereinigten Fassung ist der Punkt, an dem der Showcase
-überzeugt oder nicht.
+Nachschieben von Details. Man soll nicht druckreif sprechen müssen, um verstanden zu werden: Genau
+das nimmt die bereinigte Fassung ab, und das Rohe bleibt trotzdem stehen, damit nichts wegfällt.
+Der Kontrast zwischen beiden ist der Punkt, an dem der Showcase überzeugt oder nicht.
 
 Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war, was aufgefallen ist.
 
 ## Nicht machen
 
 - Keine Stimmungs- oder Befindlichkeitserfassung, keine Punktzahlen fürs Wohlbefinden,
-  keine Selbstoptimierungs-Anzeigen. Ist nicht Teil des Produkts.
+  keine Selbstoptimierungs-Anzeigen. Die eigene Verfassung täglich zu benoten hilft nicht, es hält
+  nur fest. Das Tagebuch protokolliert, was war — bewertet wird nichts.
+- Nichts, was mahnt: keine Benachrichtigung, kein rotes Fälligkeitszeichen, keine Serie, keine
+  Erledigungsquote, kein Rückstands-Zähler. Das Gerät wartet, es fordert nicht.
 - Keine Farbe, kein Akzentton, kein flaches Grau auf dem Panel.
 - Keine Einblend-Animationen beim Scrollen, keine Hover-Effekte auf allem. Bewegung nur da, wo sie
   etwas erklärt: Aufnahme, Refresh, Pipeline.
@@ -298,8 +380,10 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 - [ ] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
 - [ ] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
 - [ ] „Gerät aus" lässt den Inhalt stehen
-- [ ] eine Suche nach Farbwerten im File findet nur Grauwerte
+- [ ] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 6)
 - [ ] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
+- [ ] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
+- [ ] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
 
 **Hinweis an den Coding-Agent:** Wenn du fertig bist, öffne das File selbst und klick es durch.
 Dann in zwei, drei Sätzen sagen, was konkret drinsteckt — nicht „fertig" schreiben, sondern was
@@ -307,10 +391,13 @@ gebaut wurde.
 
 ## Fahrplan
 
-1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ← *hier*
-2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, BLE-Übertragung, Panel-Ansteuerung
-3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber
-4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen
+1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ✓
+2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, Übertragung, Panel-Ansteuerung ✓ geschrieben,
+   ungetestet auf Hardware: Pinbelegung und die Kommandofolgen des E-Paper-Controllers fehlen noch
+3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber,
+   Renderer, Nachtlauf ✓ läuft ← *hier*
+4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen steht, Schreiben ist
+   angelegt und ungeprüft
 5. **Gehäuse** — zweiteilig gedruckt, magnetische Frontplatte, SD ohne Demontage erreichbar
 6. **Feinschliff** — Akkulaufzeit messen, Refresh-Strategie und Weckintervalle optimieren
 

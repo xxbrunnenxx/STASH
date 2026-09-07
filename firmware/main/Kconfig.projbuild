@@ -1,0 +1,115 @@
+menu "STASH Board"
+
+    comment "Die Pin-Nummern stehen im Waveshare-Schaltplan und im Demo-Code."
+    comment "Solange sie auf -1 stehen, startet die Firmware nicht weiter."
+
+    menu "E-Paper"
+        config STASH_EPD_SPI_HOST
+            int "SPI-Host (1 = SPI2, 2 = SPI3)"
+            default 1
+        config STASH_EPD_SCK
+            int "SCK"
+            default -1
+        config STASH_EPD_MOSI
+            int "MOSI / DIN"
+            default -1
+        config STASH_EPD_CS
+            int "CS"
+            default -1
+        config STASH_EPD_DC
+            int "DC"
+            default -1
+        config STASH_EPD_RST
+            int "RST"
+            default -1
+        config STASH_EPD_BUSY
+            int "BUSY"
+            default -1
+        config STASH_EPD_PWR
+            int "PWR-Enable (-1, wenn das Panel dauerhaft versorgt wird)"
+            default -1
+    endmenu
+
+    menu "SD-Karte"
+        config STASH_SD_UEBER_SPI
+            bool "SD über SPI statt SDMMC"
+            default y
+            help
+                Der Waveshare-Slot hängt üblicherweise am SPI-Bus. Steht im
+                Schaltplan SDMMC (CMD/CLK/D0..D3), hier abwählen.
+        config STASH_SD_SCK
+            int "SCK"
+            default -1
+        config STASH_SD_MOSI
+            int "MOSI"
+            default -1
+        config STASH_SD_MISO
+            int "MISO"
+            default -1
+        config STASH_SD_CS
+            int "CS"
+            default -1
+    endmenu
+
+    menu "Audio (ES8311)"
+        config STASH_I2C_SDA
+            int "I2C SDA (Codec-Steuerung)"
+            default -1
+        config STASH_I2C_SCL
+            int "I2C SCL"
+            default -1
+        config STASH_I2S_MCLK
+            int "I2S MCLK"
+            default -1
+        config STASH_I2S_BCLK
+            int "I2S BCLK"
+            default -1
+        config STASH_I2S_WS
+            int "I2S WS / LRCK"
+            default -1
+        config STASH_I2S_DIN
+            int "I2S DIN (Mikrofon in den ESP)"
+            default -1
+        config STASH_MIC_GAIN_DB
+            int "Mikrofonverstärkung in dB"
+            default 30
+            range 0 42
+    endmenu
+
+    menu "Bedienung"
+        comment "Drehknopf: drei Richtungen. Aufnehmen liegt auf BOOT."
+        config STASH_KNOPF_LINKS
+            int "Drehknopf links"
+            default -1
+        config STASH_KNOPF_MITTE
+            int "Drehknopf drücken"
+            default -1
+        config STASH_KNOPF_RECHTS
+            int "Drehknopf rechts"
+            default -1
+        config STASH_TASTE_REC
+            int "BOOT-Taste (aufnehmen)"
+            default 0
+            help
+                Auf ESP32-S3-Boards liegt BOOT fast immer auf GPIO0.
+    endmenu
+
+endmenu
+
+menu "STASH Netz"
+    config STASH_WLAN_SSID
+        string "WLAN-SSID (2,4 GHz)"
+        default ""
+    config STASH_WLAN_PASSWORT
+        string "WLAN-Passwort"
+        default ""
+    config STASH_BRAIN_HOST
+        string "Adresse des Brain"
+        default "pi5-brain.local"
+    config STASH_BRAIN_PORT
+        int "Port des Brain"
+        default 8080
+    config STASH_NETZ_INTERVALL_S
+        int "Sekunden zwischen zwei Netzversuchen"
+        default 30
+endmenu

@@ -1,0 +1,33 @@
+# Vorgaben, die eingecheckt sind. Alles Maschinenspezifische steht in sdkconfig
+# und wird per `idf.py menuconfig` gesetzt.
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# 16 MB Flash, 8 MB PSRAM (WROOM-1-N16R8). Der Bildpuffer ist 48 kB, die
+# Audiopuffer sind es auch — beides liegt in PSRAM, nicht im knappen SRAM.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Dateinamen im Vault und auf der Karte sind deutsch — Umlaute müssen durch.
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_API_ENCODING_UTF_8=y
+CONFIG_FATFS_CODEPAGE_850=y
+
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# Light-Sleep zwischen zwei Bedienungen. Kein Deep-Sleep: der Aufwachvorgang
+# würde den Anfang eines Satzes verschlucken.
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y

@@ -1,0 +1,14 @@
+[Unit]
+Description=STASH Nachtlauf um 03:00
+Documentation=https://github.com/xxbrunnenxx/stash
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Lief der Pi um drei nicht, wird beim nächsten Start nachgeholt. Ein Morgen
+# ohne Seite, weil nachts der Strom weg war, wäre genau der Ausfall, den man
+# an einem schlechten Tag nicht gebrauchen kann.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

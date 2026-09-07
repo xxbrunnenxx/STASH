@@ -1,0 +1,33 @@
+# Nach ~/.config/stash/stash.toml kopieren und anpassen.
+
+[vault]
+pfad = "~/Obsidian/stash"
+
+[whisper]
+modell    = "small"      # tiny · base · small · medium
+rechentyp = "int8"       # auf dem Pi 5 die brauchbare Wahl
+sprache   = "de"
+
+[llm]
+# Nur für den Nachtlauf. Jeder Server, der die OpenAI-Schnittstelle spricht.
+# Ist keiner da, legt der Nachtlauf nur Listen zusammen und verdichtet nicht.
+endpunkt = "http://localhost:11434/v1"
+modell   = "google/gemma-4-e2b"
+zeitlimit_s = 900
+
+[einsortieren]
+schwelle       = 0.62    # darunter entsteht eine neue Liste
+archiv_ab_tage = 60      # ab wann eine stille Liste ihre Archivierung anbietet
+
+[audio]
+aufbewahrung_tage = 30   # danach wird die WAV gelöscht, das Transkript bleibt
+
+[server]
+adresse = "0.0.0.0"
+port    = 8080
+
+[caldav]
+# Leer lassen, dann wird nichts synchronisiert.
+url      = ""
+benutzer = ""
+passwort = ""
