@@ -482,6 +482,22 @@ const TAG_UNTERWEGS=[
    ['brennholz','stapeln','trocknen'],['auto','tanken','quittung']]],
 ];
 
+/* Der Inhalt des Tages, nicht nur seine Ablage. Von Hand gesetzt als Muster
+   dessen, was das Modell nachts aus den Rohnotizen ziehen müsste. */
+const TAGESINHALT={
+ 'Überdachung Outdoor-Gym':{
+   fest:'Stahlrahmen statt Holz: bei sechs Metern Spannweite trüge Holz nur mit Stützen mittendrin, und die stehen im Weg. Dach aus Lichtplatten, sonst wird es zu dunkel zum Trainieren. Punktfundamente, 80 cm, frostfrei.',
+   offen:'Breite noch nicht nachgemessen. Gummimatten unter die Hantelbank oder daneben?',
+   aufgaben:['Gummimatten bestellen','Statik für Windlast fragen','Preise für Lichtplatten holen']},
+ 'Heide Park':{
+   fest:'Krake hatte vierzig Minuten Wartezeit und war trotzdem die beste Fahrt. Colossus hat sich gelohnt, das Essen im Park nicht. Rückfahrt mit Stau ab Soltau.',
+   offen:'',aufgaben:[]},
+ 'Ärger mit KIs':{
+   fest:'Der Nachmittag ging drauf: Anweisungen ignoriert, statt Antworten kamen Umwege, und mehrfach wurde etwas behauptet, das niemand geprüft hatte.',
+   offen:'Enger führen — oder das Ergebnis einfordern, statt den Weg zu begleiten?',
+   aufgaben:[]},
+};
+
 /* Der Nachtlauf. Tagsüber entscheidet die Regel je Notiz und sieht nur diese
    eine. Nachts liegen alle Listen nebeneinander — ein einziges gemeinsames
    Trigger-Wort genügt dann, um eine gestern entstandene Liste zurückzuführen. */
@@ -576,18 +592,45 @@ V.morgenAusDaten=()=>{
   const satz=t=>t.offen.length>1
     ? `liegt noch auf ${t.offen.length} Listen, die nicht zusammengefunden haben: ${t.offen.slice(0,3).map(k=>'#'+k).join(', ')}`
     : t.offen.length===1 ? `steht unter #${t.offen[0]}` : `ist zusammengeführt`;
+  const aufgaben=[];themen.forEach(t=>{const i=TAGESINHALT[t.thema];if(i)aufgaben.push(...i.aufgaben);});
+  const zerstreut=themen.filter(t=>t.offen.length>1);
+  const w=woche(),i0=(HEUTE.getDay()+6)%7,term=[];
+  for(let d=1;d<7&&term.length<3;d++){const t=new Date(HEUTE);t.setDate(HEUTE.getDate()+d);
+    (KALENDER[(t.getDay()+6)%7]||[]).forEach(e=>{if(term.length<3)term.push({tag:WK[t.getDay()],...e});});}
+  const P='font-size:14px;line-height:1.40;';
   return `
- <div class="d1">${WT[HEUTE.getDay()]}<br>${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
- <div class="regel stark"></div>
- <div class="p" style="margin-bottom:11px">Gestern warst du den ganzen Tag unterwegs.
-   ${a.tb+a.rest} Aufnahmen, ${a.tb} davon sind ins Tagebuch gegangen.</div>
- ${themen.slice(0,3).map(t=>`<div class="p" style="margin-bottom:11px"><b style="font-weight:600">${esc(t.thema)}</b>
-   — ${t.gesamt} Aufnahmen, ${satz(t)}.</div>`).join('')}
- <div class="regel"></div>
- <div class="m">In der Nacht zusammengelegt: ${z.length} ${z.length===1?'Liste':'Listen'}.
-   ${z.slice(0,3).map(([x,y])=>'#'+x+' → #'+y).join(' · ')}</div>
- ${themen.some(t=>t.offen.length>1)?`<div class="m" style="margin-top:7px">Nicht zusammengebracht,
-   weil kein gemeinsames Wort vorkam. Sag es mir, dann räume ich es heute Nacht.</div>`:''}`;
+ <div class="d1" style="font-size:27px">${WT[HEUTE.getDay()]}, ${HEUTE.getDate()}. ${MO[HEUTE.getMonth()]}</div>
+ <div class="regel stark" style="margin:8px 0"></div>
+ ${themen.slice(0,3).map((t,k)=>{const i=TAGESINHALT[t.thema];if(!i)return '';
+   return `${k?'<div class="regel eng"></div>':''}
+   <div class="d2" style="font-size:16px;margin-bottom:2px">${esc(t.thema)}</div>
+   <div class="p" style="${P}margin-bottom:${i.offen?'3px':'7px'}">${esc(i.fest)}</div>
+   ${i.offen?`<div class="p" style="${P}margin-bottom:7px"><i>Offen:</i> ${esc(i.offen)}</div>`:''}`;}).join('')}
+ <div class="regel eng"></div>
+ <div style="display:flex;gap:14px">
+  <div style="flex:1.15">
+   <div class="m kursiv" style="margin-bottom:3px">Zu tun</div>
+   ${aufgaben.map(t=>`<div class="z" style="padding:1px 0">${IK.kast(false)}<span class="t" style="font-size:13px">${esc(t)}</span></div>`).join('')}
+  </div>
+  <div style="flex:.85">
+   <div class="m kursiv" style="margin-bottom:3px">Diese Woche</div>
+   ${term.map(t=>`<div class="z" style="padding:1px 0"><span class="uhr" style="width:20px">${t.tag}</span>
+     <span class="t" style="font-size:13px">${t.u} ${esc(t.t)}</span></div>`).join('')}
+  </div>
+ </div>
+ <div class="regel eng"></div>
+ <div class="p" style="${P}margin-bottom:5px"><i>Nebenbei:</i> Kaffee und Brot fehlen, der Werkstatt-Termin
+   steht noch ohne Uhrzeit, das Brennholz muss vor dem Regen gestapelt werden, und die Tankquittung
+   liegt im Auto.</div>
+ <div class="p" style="${P}margin-bottom:5px"><i>Im Tagebuch:</i> ${a.tb} Absätze von unterwegs —
+   die Anfahrt, der Tag im Park, abends der Ärger am Rechner.</div>
+ <div class="p" style="${P}"><i>Eingeschlafen:</i> #dachrinne hat sich seit
+   63 Tagen nicht gemeldet. Archivieren?</div>
+ <div class="regel" style="margin:6px 0"></div>
+ <div class="m">${a.tb+a.rest} Aufnahmen verarbeitet · ${z.length} Listen in der Nacht zusammengelegt
+   ${z.slice(0,2).map(([x,y])=>'(#'+x+' → #'+y+')').join(' ')}</div>
+ ${zerstreut.length?`<div class="m" style="margin-top:4px">${esc(zerstreut[0].thema)} liegt noch auf
+   ${zerstreut[0].offen.slice(0,3).map(k=>'#'+k).join(', ')} — sag es mir, dann lege ich sie zusammen.</div>`:''}`;
 };
 
 V.uebersicht=()=>{
