@@ -27,6 +27,7 @@ fehlt, ist echte Hardware unter dem Code, um das zu verifizieren: siehe
 ## Inhalt
 
 - [Wofür das gebaut ist](#wofür-das-gebaut-ist)
+- [Wenn etwas schiefgeht](#wenn-etwas-schiefgeht)
 - [Systemüberblick](#systemüberblick)
 - [Stückliste](#stückliste)
 - [Showcase erzeugen](#showcase-erzeugen)
@@ -68,6 +69,25 @@ Tagen genauso funktionieren wie an guten.** Konkret:
 - **Es bleibt im Haus.** Frei reden kann man nur in etwas, das nichts weitergibt.
 
 Diese Punkte sind der Grund für das Gerät. Wer einen davon wegverhandelt, baut ein anderes.
+
+## Wenn etwas schiefgeht
+
+Ein Werkzeug, das im Normalfall gut ist und im Fehlerfall nervt, wird nicht benutzt. Deshalb steht
+das Verhalten bei Ausfällen hier und nicht im Kleingedruckten — und deshalb landet jede Aufnahme
+zuerst auf der SD-Karte, bevor irgendetwas anderes damit passiert: Ab da kann in der Tabelle unten
+nichts mehr in der Spalte „was du tun musst" außer Warten oder gar nichts stehen.
+
+| Was passiert | Was das Gerät macht | Was du tun musst |
+|---|---|---|
+| Pi ist aus | Aufnahme bleibt auf der Karte, stiller Wiederholversuch. Nach einem Netzintervall (30 s) zeichnet das Panel seine eigene Ausfallanzeige — siehe [Was ein echter Ausfall wirklich zeigt](#die-pipeline) | nichts |
+| WLAN weg | dasselbe | nichts |
+| Akku leer | das letzte Bild bleibt stehen und lesbar; im Leerlauf ist das die Sperrseite **Heute** | laden, wenn du drankommst |
+| Transkription unsicher | Notiz landet trotzdem im Eingang, Rohtext erhalten, keine Zuordnung wird erzwungen | irgendwann draufschauen — oder auch nicht |
+| Falsch einsortiert | nichts, es ist eine Zeile in einer Markdown-Datei | am Rechner verschieben |
+| Pi-Dienst abgestürzt | Warteschlange läuft voll, wird nach Neustart abgearbeitet | Dienst neu starten |
+| **SD-Karte voll** | **der einzige Fall mit einer echten Meldung auf dem Gerät** | alte Aufnahmen löschen |
+
+Merksatz für alle Zweifelsfälle: **im Zweifel behalten, im Zweifel still.**
 
 ## Systemüberblick
 
@@ -249,7 +269,8 @@ Aufbau des Showcase-Fensters:
 │  Warteschl.  │                          │ Akku · Temp · RTC  │
 │              │   [Vollrefresh]          │ SD · RSSI · Refresh│
 │ ▸ Sprachnotiz│   [Gerät aus]            │                    │
-│   aufnehmen  │   [Serif / Sans]         │                    │
+│   aufnehmen  │   [WLAN aus]             │                    │
+│              │   [Serif / Sans]         │                    │
 └──────────────┴──────────────────────────┴────────────────────┘
 ```
 
@@ -301,6 +322,9 @@ Mikrofon → SD-Puffer → Upload → Transkription → Aufräumen → Schlagwö
                               Panel ← Rendern ← Vault ← Einsortieren
 ```
 
+Der zweite Schritt ist der wichtige: **erst auf die Karte, dann alles andere.** Ab da kann nichts
+mehr verloren gehen, egal was danach ausfällt.
+
 Der Button **„Sprachnotiz aufnehmen"** startet den Ablauf zeitgesteuert. Der Gerätescreen zeigt
 währenddessen ein Aufnahme-Overlay mit laufender Zeit und einer 1-Bit-Balken-Wellenform. Parallel
 laufen Log-Zeilen rechts ein und die Pipeline-Stufen werden nacheinander aktiv.
@@ -330,8 +354,7 @@ Log-Format `HH:MM:SS.mmm  modul  text`, monospace:
 > Whisper aus dem Echtzeitfaktor, die Wortzahl aus dem Transkript — damit sie zueinander passen.
 > Sie werden ersetzt, sobald Whisper das erste Mal echt auf dem Pi läuft.
 
-**Mindestens fünf verschiedene Demo-Aufnahmen**, die bei wiederholtem Drücken durchrotieren — jede
-zeigt einen anderen Fall:
+**Sechs Demo-Aufnahmen**, die bei wiederholtem Drücken durchrotieren — jede zeigt einen anderen Fall:
 
 | Aufnahme | Was sie zeigt |
 |---|---|
@@ -340,9 +363,11 @@ zeigt einen anderen Fall:
 | Feierabend-Rückblick in Erzählform | erkannt als Tagebuch, wird an den heutigen Eintrag angehängt |
 | Einkauf, drei Sachen | `#einkauf` |
 | Termin mit Uhrzeit | Apple Erinnerung + `#termine` |
+| **Genuschelt, Nebengeräusche, halber Satz** | **conf 0.58 — bleibt trotzdem im Eingang, Rohtext erhalten, keine Zuordnung erzwungen, keine Fehlermeldung.** Der Fall, an dem sich zeigt, ob das System einen im Stich lässt: „im Zweifel behalten, im Zweifel still" als Bild. |
 
 Zusätzlich ein Schalter **„WLAN aus"**: dann wandert die Aufnahme in die Warteschlange statt
-durchzulaufen, und die Warteschlangen-Ansicht füllt sich. Beim Wiedereinschalten läuft der Stau ab.
+durchzulaufen, und die Warteschlangen-Ansicht füllt sich. Die Aufnahme startet trotzdem sofort, ohne
+Hinweis und ohne Nachfrage. Beim Wiedereinschalten läuft der Stau von allein ab.
 
 **Was ein echter Ausfall wirklich zeigt.** Der Showcase simuliert „WLAN aus" mit einer live
 mitzählenden JavaScript-Anzeige (Sekunden, Nächster-Versuch-Countdown, volle Warteschlangen-Liste)
@@ -405,6 +430,8 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
   nur fest. Das Tagebuch protokolliert, was war — bewertet wird nichts.
 - Nichts, was mahnt: keine Benachrichtigung, kein rotes Fälligkeitszeichen, keine Serie, keine
   Erledigungsquote, kein Rückstands-Zähler. Das Gerät wartet, es fordert nicht.
+- **Keine Rückfrage beim Erfassen.** Keine Dialogbox, die wissen will, wohin etwas gehört, und
+  nichts, was die Aufnahme verzögert oder verhindert — außer einer physisch vollen Karte.
 - Keine Farbe, kein Akzentton, kein flaches Grau auf dem Panel.
 - Keine Einblend-Animationen beim Scrollen, keine Hover-Effekte auf allem. Bewegung nur da, wo sie
   etwas erklärt: Aufnahme, Refresh, Pipeline.
@@ -431,6 +458,13 @@ Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur
 - [x] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
 - [x] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
 - [x] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
+
+Noch nicht nachgefahren — kommt mit der sechsten Demo-Aufnahme in den nächsten Playwright-Lauf:
+
+- [ ] die sechste Aufnahme (conf 0.58) geht nicht verloren und erzeugt keine Fehlermeldung
+- [ ] die Aufnahme startet ohne messbare Verzögerung, auch bei „WLAN aus"
+- [ ] bei „WLAN aus" erscheint keine Warnung, kein Dialog, keine Nachfrage
+- [ ] Statusleiste und Drehknopf-Leiste sitzen in allen acht Ansichten an derselben Stelle
 
 Diese Liste gilt für den Showcase. Firmware und Brain haben ihre eigenen offenen Punkte —
 siehe die [GitHub Issues](https://github.com/xxbrunnenxx/STASH/issues).
