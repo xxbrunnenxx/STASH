@@ -15,10 +15,12 @@ funktionieren wie an guten. Was daraus folgt, steht unter
 
 *Ein Stash ist der Vorrat, den man sich weglegt.*
 
-**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Was noch fehlt, ist
-Hardware unter dem Code: Die Pin-Nummern des Boards stehen im öffentlichen Datenblatt nicht und
-müssen aus dem Schaltplan eingetragen werden — siehe [firmware/README.md](firmware/README.md).
-Der Brain-Teil läuft ohne Gerät, [brain/README.md](brain/README.md) zeigt wie.
+**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Die Pin-Nummern des
+Boards stehen im öffentlichen Datenblatt zwar nicht, sind aber über Waveshares eigenen
+Referenzcode für dieses Board bestätigt und als Vorgaben in der Firmware hinterlegt — was noch
+fehlt, ist echte Hardware unter dem Code, um das zu verifizieren: siehe
+[firmware/README.md](firmware/README.md). Der Brain-Teil läuft ohne Gerät,
+[brain/README.md](brain/README.md) zeigt wie.
 
 ---
 
@@ -183,7 +185,7 @@ bewirkt — Anleitungen, die man nur abschreibt, helfen beim nächsten Fehler ni
 
 | Teil | Anleitung | Kurz |
 |---|---|---|
-| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pins aus dem Schaltplan in `idf.py menuconfig`, dann `idf.py flash monitor` |
+| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pin-Vorgaben in `idf.py menuconfig` prüfen, dann `idf.py flash monitor` |
 | Brain | [brain/README.md](brain/README.md) | `python3 -m venv .venv && pip install -e .`, Konfiguration nach `~/.config/stash/stash.toml`, `systemctl enable --now stash-brain` |
 
 Der Brain-Teil braucht das Gerät nicht. Eine beliebige Sprachaufnahme reicht, um den ganzen Weg zu
@@ -441,7 +443,10 @@ gebaut wurde.
 
 1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ✓
 2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, Übertragung, Panel-Ansteuerung ✓ geschrieben,
-   ungetestet auf Hardware: Pinbelegung und die Kommandofolgen des E-Paper-Controllers fehlen noch
+   Pinbelegung und Akkuauslesung (AXP2101) über Waveshares Referenzcode bestätigt, aber ungetestet
+   auf echter Hardware; die Kommandofolgen des E-Paper-Controllers (`epd_sequenz.h`) sind als
+   Referenz dokumentiert, aber noch nicht eingetragen — zwei offene Fragen (Moduswechsel
+   Vollbild/Schnell, Drehrichtung) lassen sich nur am zusammengebauten Gerät klären
 3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber,
    Renderer, Nachtlauf ✓ läuft ← *hier*
 4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen und Schreiben sind
