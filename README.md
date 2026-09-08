@@ -351,7 +351,10 @@ Die Details, an denen es hängt:
   ohne das Wort davor hielte man sie für eine laufende Uhr. Die Seite wird ruhend voller gesetzt
   als bedient — was nur angeschaut und nicht durchgeblättert wird, hat nur das, was draufsteht.
 - Auswahl/Markierung immer als invertierter Block, nie als Farbfläche.
-- Akku in Prozent **und** geschätzten Tagen Restlaufzeit.
+- Akku in Prozent. Die geschätzten Tage Restlaufzeit stehen noch aus (siehe Fahrplan, Punkt 6) —
+  eine seriöse Schätzung braucht entweder eine bestätigte Akkukapazität, die in der Stückliste
+  nicht steht, oder eine echte Laufzeitmessung an der Hardware. Beides zu erfinden wäre genau die
+  Art Annahme, die die Stückliste bewusst ausschließt.
 
 ## Demo-Inhalte
 
