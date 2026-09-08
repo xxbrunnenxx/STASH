@@ -59,6 +59,43 @@ static void ziffer(int x, int y, int z, int skala)
                 rechteck(x + spalte * skala, y + zeile * skala, skala, skala, true);
 }
 
+// Acht Buchstaben, genau die, die „KARTE VOLL" braucht — kein Alphabet, weil
+// es sonst nichts zu schreiben gibt. Gleiches Rasterformat wie ZIFFER oben.
+static const struct { char c; uint8_t bits[7]; } BUCHSTABEN[] = {
+    {'A', {0x70,0x88,0x88,0xF8,0x88,0x88,0x88}},
+    {'E', {0xF8,0x80,0x80,0xF0,0x80,0x80,0xF8}},
+    {'K', {0x88,0x90,0xA0,0xC0,0xA0,0x90,0x88}},
+    {'L', {0x80,0x80,0x80,0x80,0x80,0x80,0xF8}},
+    {'O', {0x70,0x88,0x88,0x88,0x88,0x88,0x70}},
+    {'R', {0xF0,0x88,0x88,0xF0,0xA0,0x90,0x88}},
+    {'T', {0xF8,0x20,0x20,0x20,0x20,0x20,0x20}},
+    {'V', {0x88,0x88,0x88,0x88,0x50,0x50,0x20}},
+};
+
+static void buchstabe(int x, int y, char c, int skala)
+{
+    for (size_t i = 0; i < sizeof(BUCHSTABEN) / sizeof(BUCHSTABEN[0]); i++) {
+        if (BUCHSTABEN[i].c != c) continue;
+        for (int zeile = 0; zeile < 7; zeile++)
+            for (int spalte = 0; spalte < 5; spalte++)
+                if (BUCHSTABEN[i].bits[zeile] & (0x80 >> spalte))
+                    rechteck(x + spalte * skala, y + zeile * skala, skala, skala, true);
+        return;
+    }
+}
+
+// Zentrierte Zeile, Leerzeichen rücken nur weiter statt zu zeichnen.
+static void text_zeichnen(int y, const char *text, int skala)
+{
+    const int breite_zeichen = 6 * skala;
+    const int n = (int)strlen(text);
+    int x = (PANEL_BREITE - n * breite_zeichen) / 2;
+    for (int i = 0; text[i]; i++) {
+        if (text[i] != ' ') buchstabe(x, y, text[i], skala);
+        x += breite_zeichen;
+    }
+}
+
 esp_err_t panel_init(void)
 {
     puffer       = heap_caps_malloc(PANEL_BYTES, MALLOC_CAP_SPIRAM);
@@ -226,4 +263,29 @@ void panel_offline_ende(bool frisch)
     // liegt der bereits im Puffer; das hier nur den Zustand zurücksetzen.
     if (!frisch) memcpy(puffer, vor_offline, PANEL_BYTES);
     offline_aktiv = false;
+}
+
+// Anders als die beiden Overlays oben blockiert das hier tatsächlich etwas:
+// Ohne Platz nimmt das Gerät keine Aufnahme mehr an, bis jemand löscht. Der
+// geschlossene Rahmen markiert das als eigenen, dritten Zustand (durchgezogener
+// Balken oben = Aufnahme läuft, gestrichelter = offline, geschlossener Rahmen
+// = blockiert). Kein Rückweg wie bei den Overlays: Der nächste reguläre
+// Zeichenaufruf — Pi erreichbar, Offline-Overlay oder die nächste Aufnahme —
+// überschreibt das ohnehin, absichtlich ohne eigene Logik dafür.
+void panel_karte_voll(void)
+{
+    aufwachen();
+    memset(puffer, 0xFF, PANEL_BYTES);
+
+    rechteck(0, 0, PANEL_BREITE, 10, true);
+    rechteck(0, PANEL_HOEHE - 10, PANEL_BREITE, 10, true);
+    rechteck(0, 0, 10, PANEL_HOEHE, true);
+    rechteck(PANEL_BREITE - 10, 0, 10, PANEL_HOEHE, true);
+
+    // Zwei Zeilen statt einer: "KARTE VOLL" in einer Zeile wäre bei einer
+    // Schriftgröße, die noch lesbar ist, breiter als die 480 Pixel des Panels.
+    text_zeichnen(320, "KARTE", 14);
+    text_zeichnen(438, "VOLL", 14);
+
+    if (epd_bereit()) { epd_vollbild(puffer); partial = 0; }
 }

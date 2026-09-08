@@ -181,6 +181,17 @@ static void aufnahme_beginnen(void)
     audio_stop(datei, sizeof(datei), &sekunden);
     panel_aufnahme_ende();
 
+    if (audio_karte_voll()) {
+        // Der bis dahin geschriebene Teil bleibt eine gültige Datei — im
+        // Zweifel behalten, nicht verwerfen, egal wie kurz er ist. Kein
+        // netz_anstossen(): Die Meldung soll lesbar bleiben, bis der nächste
+        // reguläre Netzversuch (spätestens in CONFIG_STASH_NETZ_INTERVALL_S)
+        // sie ohnehin überschreibt.
+        ESP_LOGE(TAG, "Karte voll · Aufnahme abgebrochen, bisheriger Teil bleibt erhalten");
+        panel_karte_voll();
+        return;
+    }
+
     // Sehr kurze Drücker sind Versehen, keine Notizen.
     if (sekunden < 0.6f) {
         ESP_LOGI(TAG, "unter 0,6 s · verworfen");

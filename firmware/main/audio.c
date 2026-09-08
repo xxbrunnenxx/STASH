@@ -30,6 +30,7 @@ static uint32_t    datenbytes;
 static int64_t     start_us;
 static volatile bool laeuft;
 static volatile bool obergrenze_erreicht;  // schreiber_task hat sich selbst beendet
+static volatile bool karte_voll;           // dito, wegen eines Schreibfehlers/voller Karte
 static volatile float pegel;
 static TaskHandle_t schreiber;
 
@@ -64,8 +65,11 @@ static void schreiber_task(void *arg)
                              &gelesen, pdMS_TO_TICKS(200)) != ESP_OK || gelesen == 0) {
             continue;
         }
-        fwrite(puffer, 1, gelesen, datei);
-        datenbytes += gelesen;
+        // geschrieben statt gelesen für den Zähler: Nur was wirklich auf der
+        // Karte liegt, darf der WAV-Kopf am Ende behaupten — sonst zeigt er
+        // eine Länge an, die die Datei nicht hat.
+        const size_t geschrieben = fwrite(puffer, 1, gelesen, datei);
+        datenbytes += geschrieben;
 
         // Effektivwert für die Wellenform. Reicht für einen Balken, ist kein Messgerät.
         double summe = 0;
@@ -73,7 +77,15 @@ static void schreiber_task(void *arg)
         for (size_t i = 0; i < n; i++) summe += (double)puffer[i] * puffer[i];
         pegel = (float)(sqrt(summe / n) / 32768.0);
 
-        if (datenbytes > (uint32_t)AUDIO_MAX_S * AUDIO_RATE * 2) {
+        if (geschrieben < gelesen) {
+            // Kurzer Schreibvorgang: die Karte ist voll (oder ein anderer
+            // I/O-Fehler) — die Aufnahme jetzt beenden, statt weiter gegen
+            // eine volle Karte anzuschreiben. Der bis hierhin geschriebene
+            // Teil bleibt eine gültige, kürzere Datei.
+            ESP_LOGE(TAG, "Karte voll oder Schreibfehler · Aufnahme beendet");
+            laeuft = false;
+            karte_voll = true;
+        } else if (datenbytes > (uint32_t)AUDIO_MAX_S * AUDIO_RATE * 2) {
             ESP_LOGW(TAG, "Obergrenze %d s erreicht · Aufnahme beendet", AUDIO_MAX_S);
             laeuft = false;
             obergrenze_erreicht = true;
@@ -167,7 +179,10 @@ esp_err_t audio_stop(char *aus, size_t len, float *sekunden)
     // worden — bei genau der langen, abschweifenden Aufnahme, für die dieses
     // Gerät gebaut ist, wäre am Ende eine kaputte Datei mit Nullkopf übrig
     // geblieben, still und ohne jede Meldung.
-    if (!laeuft && !obergrenze_erreicht) return ESP_ERR_INVALID_STATE;
+    // karte_voll bleibt hier absichtlich unverändert — audio_karte_voll()
+    // liest und löscht es, nicht dieser Aufruf, weil der Aufrufer erst nach
+    // audio_stop() entscheidet, ob er panel_karte_voll() zeigen muss.
+    if (!laeuft && !obergrenze_erreicht && !karte_voll) return ESP_ERR_INVALID_STATE;
     laeuft = false;
     obergrenze_erreicht = false;
     while (schreiber) vTaskDelay(pdMS_TO_TICKS(10));
@@ -186,6 +201,13 @@ esp_err_t audio_stop(char *aus, size_t len, float *sekunden)
     ESP_LOGI(TAG, "gestoppt · %.1f s · %lu kB", s, (unsigned long)(datenbytes / 1000));
     ESP_LOGI(TAG, "→ %s", pfad);
     return ESP_OK;
+}
+
+bool audio_karte_voll(void)
+{
+    const bool v = karte_voll;
+    karte_voll = false;
+    return v;
 }
 
 bool  audio_laeuft(void)   { return laeuft; }

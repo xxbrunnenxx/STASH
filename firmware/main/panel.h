@@ -1,8 +1,10 @@
 // Das Panel und die Refresh-Strategie. Alle Schriftarbeit passiert auf dem Pi;
-// hier liegen nur der Bildpuffer, der Geisterbild-Zähler und zwei Overlays,
-// die beide keine Runde übers Netz abwarten können: das Aufnahme-Overlay
-// (die Runde wäre zu langsam) und das Offline-Overlay (die Runde ist in dem
-// Moment schlicht nicht möglich).
+// hier liegen nur der Bildpuffer, der Geisterbild-Zähler und drei Fälle, die
+// keine Runde übers Netz abwarten können: das Aufnahme-Overlay (die Runde
+// wäre zu langsam), das Offline-Overlay (die Runde ist in dem Moment schlicht
+// nicht möglich) und die Meldung „Karte voll" (die einzige, die tatsächlich
+// etwas blockiert — deshalb die einzige mit echten Buchstaben statt nur
+// Ziffern, siehe panel_karte_voll()).
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
@@ -34,5 +36,12 @@ void panel_aufnahme_ende(void);
 // Overlay auf dem Schirm stehen, obwohl der Puffer wieder stimmt).
 void panel_offline(int sekunden_offline);
 void panel_offline_ende(bool frisch);
+
+// Die SD-Karte ist während einer Aufnahme vollgelaufen: der einzige Fall, in
+// dem das Gerät wirklich blockiert ist (es kann nichts mehr aufnehmen), bis
+// jemand Platz schafft. Bleibt stehen, bis der nächste reguläre Zeichenaufruf
+// (Pi erreichbar, Offline-Overlay oder die nächste Aufnahme) den Schirm
+// ohnehin überschreibt — kein eigener Rückweg nötig.
+void panel_karte_voll(void);
 
 uint8_t *panel_puffer(void);

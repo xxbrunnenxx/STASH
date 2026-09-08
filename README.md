@@ -89,6 +89,13 @@ nichts mehr in der Spalte „was du tun musst" außer Warten oder gar nichts ste
 
 Merksatz für alle Zweifelsfälle: **im Zweifel behalten, im Zweifel still.**
 
+**Zur SD-Karte:** `audio.c` erkennt einen kurzen Schreibvorgang (die Karte hat keinen Platz mehr
+für den nächsten Block) und beendet die Aufnahme dort, statt weiter gegen die volle Karte
+anzuschreiben — der bis dahin geschriebene Teil bleibt eine gültige, kürzere Datei, auch wenn er
+unter der sonstigen 0,6-Sekunden-Grenze läge. `panel.c` zeigt dafür „KARTE VOLL", mit einem eigenen,
+auf diese zwei Wörter beschränkten Buchstabensatz — die einzige Wortmeldung, die das Gerät ohne den
+Pi zeigt, weil es der einzige Fall ist, der wirklich etwas blockiert.
+
 ## Systemüberblick
 
 ```

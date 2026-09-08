@@ -131,6 +131,23 @@ Sobald der Pi wieder antwortet, holt sich das Gerät den echten Inhalt zurück (
 — auch dann, wenn die Antwort ein `304 Not Modified` ist, weil sich der Pi-Inhalt seit dem Ausfall
 gar nicht geändert hat (sonst bliebe das Overlay stehen, obwohl der Puffer längst wieder stimmt).
 
+### Die Meldung „Karte voll"
+
+Der einzige Fall, in dem das Gerät wirklich blockiert ist: Ohne Platz auf der SD-Karte kann keine
+neue Aufnahme mehr gespeichert werden, bis jemand löscht. `schreiber_task()` in `audio.c` erkennt
+das am `fwrite()`-Rückgabewert (ein kürzerer Schreibvorgang als angefordert heißt: kein Platz mehr)
+und beendet die Aufnahme dort, statt weiter gegen die volle Karte anzuschreiben — der bis dahin
+geschriebene Teil bleibt eine gültige, kürzere WAV-Datei, auch unterhalb der sonstigen
+0,6-Sekunden-Verwerfungsgrenze (siehe `audio_karte_voll()` und den Aufrufer in `stash_main.c`).
+
+`panel_karte_voll()` in `panel.c` zeigt daraufhin „KARTE VOLL" — die einzige Wortmeldung im
+gesamten Gerät. Dafür gibt es einen eigenen, auf genau die acht dafür nötigen Buchstaben
+beschränkten Zeichensatz (`BUCHSTABEN[]`), getrennt vom Ziffernsatz der beiden anderen Overlays.
+Ein geschlossener Rahmen statt eines Balkens markiert den Unterschied: Aufnahme und Offline-Overlay
+zeigen einen Zustand, „Karte voll" blockiert tatsächlich etwas. Die Meldung braucht keinen eigenen
+Rückweg — der nächste reguläre Zeichenaufruf überschreibt sie ohnehin, sobald der Pi wieder
+erreichbar ist oder die nächste Aufnahme beginnt.
+
 ---
 
 ## Schritt 3 — Bauen und flashen
