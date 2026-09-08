@@ -41,8 +41,8 @@ bool board_pins_vollstaendig(void)
         }
     }
     if (fehlen) {
-        ESP_LOGE(TAG, "%d Pins nicht gesetzt. Nummern aus dem Waveshare-Schaltplan", fehlen);
-        ESP_LOGE(TAG, "in `idf.py menuconfig` unter „STASH Board\" eintragen.");
+        ESP_LOGE(TAG, "%d Pins nicht gesetzt. Vorgaben stehen in Kconfig.projbuild;", fehlen);
+        ESP_LOGE(TAG, "in `idf.py menuconfig` unter „STASH Board\" prüfen/eintragen.");
         return false;
     }
     return true;
