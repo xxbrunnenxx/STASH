@@ -442,7 +442,7 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 
 ## Abnahme
 
-Geprüft gegen `showcase/stash-showcase.html`, Stand Commit `8e55b95` (per Playwright, headless
+Geprüft gegen `showcase/stash-showcase.html`, Stand Commit `5510b08` (per Playwright, headless
 Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur gelesen.
 
 - [x] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
