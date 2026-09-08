@@ -57,7 +57,13 @@ Der Rechner sollte auch so heißen:
 
 ```bash
 sudo hostnamectl set-hostname pi5-brain
+sudo systemctl restart avahi-daemon
 ```
+
+Der Neustart ist billig und nimmt jeden Zweifel: `avahi-daemon` wurde im Schritt davor mit dem
+alten Hostnamen gestartet, bevor der neue gesetzt war — ob er die Änderung von selbst mitbekommt,
+hängt von der genauen Version ab. Zwei Sekunden hier sind billiger als das Gerät stundenlang gegen
+einen falschen `.local`-Namen laufen zu lassen.
 
 ### Schriften (empfohlen, nicht zwingend)
 
@@ -89,7 +95,8 @@ Das `venv` ist eine abgeschottete Python-Umgebung. Ohne sie mischen sich die Pak
 Systems, und ein `apt upgrade` kann dir den Dienst zerlegen. `pip install -e .` installiert STASH
 so, dass Änderungen am Code sofort wirken — kein erneutes Installieren nach jeder Zeile.
 
-Gezogen werden dabei: `faster-whisper`, `fastapi`, `uvicorn`, `pillow`, `httpx`, `caldav`.
+Gezogen werden dabei: `faster-whisper`, `fastapi`, `uvicorn`, `python-multipart` (für den
+Datei-Upload von `/v1/notiz`), `pillow`, `httpx`, `caldav`.
 
 ---
 
@@ -175,9 +182,17 @@ stash-brain
 # → Uvicorn running on http://0.0.0.0:8080
 ```
 
-Als Dienst, damit er den Neustart überlebt:
+Als Dienst, damit er den Neustart überlebt. Die beiden `.service`-Dateien nehmen den Nutzernamen
+`pi` an (`User=`, `Group=`, `WorkingDirectory=/home/pi/stash/brain`,
+`ExecStart=/home/pi/stash/brain/.venv/bin/...`, `ReadWritePaths=/home/pi/Obsidian`) — auf Bookworm
+vergibt der Raspberry Pi Imager seit der Neugestaltung des Ersteinrichtungs-Dialogs aber einen
+selbst gewählten Nutzernamen, nicht mehr automatisch `pi`. `whoami` prüfen; weicht er ab, in beiden
+Dateien ersetzen:
 
 ```bash
+sed -i "s#/home/pi#$HOME#g; s/^User=pi$/User=$(whoami)/; s/^Group=pi$/Group=$(whoami)/" \
+    ~/stash/brain/systemd/stash-brain.service ~/stash/brain/systemd/stash-nachtlauf.service
+
 sudo cp ~/stash/brain/systemd/stash-*.service ~/stash/brain/systemd/stash-*.timer \
         /etc/systemd/system/
 sudo systemctl daemon-reload

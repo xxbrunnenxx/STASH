@@ -13,9 +13,14 @@ ExecStart=/home/pi/stash/brain/.venv/bin/stash-brain
 Restart=on-failure
 RestartSec=5
 
-# Der Dienst braucht den Vault, seine Konfiguration und sonst nichts.
+# Der Dienst braucht den Vault, seine Konfiguration und den Modell-Cache von
+# faster-whisper (~/.cache/huggingface) — ohne Letzteren schlägt der allererste
+# Modell-Download unter diesem Dienst fehl, weil ProtectHome sonst auch dieses
+# Verzeichnis schreibgeschützt macht. Läuft der Dienst schon einmal im
+# Vordergrund und lädt das Modell dort herunter, wäre das Verzeichnis zwar
+# nur noch lesend nötig — aber genau das lässt sich vorher nicht garantieren.
 ProtectSystem=strict
-ReadWritePaths=/home/pi/Obsidian
+ReadWritePaths=/home/pi/Obsidian /home/pi/.cache/huggingface
 ProtectHome=read-only
 PrivateTmp=yes
 NoNewPrivileges=yes
