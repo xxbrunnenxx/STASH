@@ -18,6 +18,7 @@
 #include "sdkarte.h"
 
 #include "esp_log.h"
+#include "esp_pm.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -147,6 +148,19 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
+
+    // CONFIG_PM_ENABLE allein schaltet nur dynamische Taktskalierung ein.
+    // Automatisches Light-Sleep zwischen zwei Bedienungen braucht diesen
+    // ausdrücklichen Aufruf — ohne ihn bleibt der Chip im getakteten Idle,
+    // egal was die Kconfig-Optionen sagen. WLAN und I2S nehmen sich während
+    // aktiver Übertragung selbst eine Taktsperre (ESP-IDF-Treiberverhalten),
+    // 80 MHz als Untergrenze lässt beiden genug Reserve.
+    const esp_pm_config_t pm = {
+        .max_freq_mhz = 240,
+        .min_freq_mhz = 80,
+        .light_sleep_enable = true,
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&pm));
 
     if (!board_pins_vollstaendig()) {
         // Nicht weiterlaufen und so tun als ob: Ohne Pins wäre jede folgende
