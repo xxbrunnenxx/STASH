@@ -205,7 +205,7 @@ Beschreibung steht in [brain/README.md](../brain/README.md#die-schnittstelle).
 | `panel_treiber.c` | SPI, Reset, BUSY — alles, was **nicht** vom Controller-Typ abhängt. |
 | `epd_sequenz.h` | Was vom Controller-Typ abhängt. Die eine Datei, die du füllen musst. |
 | `bedienung.c` | Vier Taster, Entprellen, Aufwachen aus dem Light-Sleep. |
-| `Kconfig.projbuild` | Alle 30 Einstellungen, die `idf.py menuconfig` zeigt. |
+| `Kconfig.projbuild` | Alle 33 Einstellungen, die `idf.py menuconfig` zeigt. |
 
 ## Die Sperrseite
 
@@ -250,6 +250,9 @@ nicht.
 
 ## Was hier noch nicht drin ist
 
+- **OTA-Updates.** `partitions.csv` legt zwei App-Slots an, damit ein misslungenes Update später
+  nicht das Gerät verliert — aber es gibt noch keinen Code, der sie nutzt. Ein neues Firmware-Bild
+  kommt bisher nur per Kabel drauf (`idf.py flash`).
 - **BLE.** Der Systemüberblick nennt WLAN *oder* BLE. Gebaut ist WLAN — ein Weg, der auch das
   Bild überträgt, statt zweier halber. BLE wäre für den Fall interessant, dass kein WLAN da ist,
   aber ein Telefon; das ist eine eigene Ausbaustufe.
