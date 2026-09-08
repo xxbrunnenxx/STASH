@@ -42,28 +42,37 @@ static volatile bool ruht;
 // dass das Panel die ganze Aufnahme über durchwischt.
 #define OVERLAY_MS 700
 
+// Seit wann der Pi nicht mehr erreichbar ist (0 = gerade verbunden), und
+// wann das Offline-Overlay zuletzt neu gezeichnet wurde — beides lokal, weil
+// in genau diesem Fall keine Anfrage beim Pi möglich ist, die es liefern
+// könnte.
+static int64_t offline_seit_us;
+static int64_t offline_letzter_refresh_us;
+
 // Arbeitet die Warteschlange ab und holt danach das aktuelle Bild.
 static void netz_task(void *arg)
 {
     const TickType_t intervall = pdMS_TO_TICKS(CONFIG_STASH_NETZ_INTERVALL_S * 1000);
+    const int64_t intervall_us = (int64_t)CONFIG_STASH_NETZ_INTERVALL_S * 1000000;
 
     while (true) {
         // Wecken durch eine neue Aufnahme oder einen Tastendruck; sonst nach
         // Ablauf des Intervalls von selbst.
         ulTaskNotifyTake(pdTRUE, intervall);
 
-        if (!netz_verbunden()) continue;
-
-        char pfad[64];
-        int hoch = 0;
-        while (sd_aeltester(pfad, sizeof(pfad))) {
-            if (netz_hochladen(pfad) != ESP_OK) break;   // beim nächsten Versuch weiter
-            unlink(pfad);                                // erst nach bestätigtem Empfang
-            hoch++;
-        }
-        if (hoch) {
-            ESP_LOGI(TAG, "%d Aufnahme%s übertragen · %d warten noch",
-                     hoch, hoch == 1 ? "" : "n", sd_warteschlange_anzahl());
+        const bool erreichbar = netz_verbunden();
+        if (erreichbar) {
+            char pfad[64];
+            int hoch = 0;
+            while (sd_aeltester(pfad, sizeof(pfad))) {
+                if (netz_hochladen(pfad) != ESP_OK) break;   // beim nächsten Versuch weiter
+                unlink(pfad);                                // erst nach bestätigtem Empfang
+                hoch++;
+            }
+            if (hoch) {
+                ESP_LOGI(TAG, "%d Aufnahme%s übertragen · %d warten noch",
+                         hoch, hoch == 1 ? "" : "n", sd_warteschlange_anzahl());
+            }
         }
 
         // Nicht ins Panel schreiben, während das Aufnahme-Overlay läuft —
@@ -78,22 +87,53 @@ static void netz_task(void *arg)
             (esp_timer_get_time() - letzte_bedienung_us) / 1000000 >= CONFIG_STASH_RUHE_NACH_S;
 
         bool neu = false;
-        if (netz_bild_holen(panel_puffer(), &neu, akku_prozent(),
-                            sd_warteschlange_anzahl(), belegt_mb, soll_ruhen) != ESP_OK) {
+        const esp_err_t bild_err = erreichbar
+            ? netz_bild_holen(panel_puffer(), &neu, akku_prozent(),
+                              sd_warteschlange_anzahl(), belegt_mb, soll_ruhen)
+            : ESP_ERR_INVALID_STATE;
+
+        if (bild_err == ESP_OK) {
+            const bool war_offline = offline_seit_us != 0;
+            offline_seit_us = 0;
+            offline_letzter_refresh_us = 0;
+            if (war_offline) {
+                // Der Schirm zeigt gerade das Offline-Overlay, nicht den
+                // zuletzt bekannten Pi-Inhalt — der muss auf jeden Fall neu
+                // aufs Panel, auch wenn der ETag laut ihm unverändert wäre.
+                panel_offline_ende(neu);
+                neu = true;
+            }
+            if (soll_ruhen && !ruht) {
+                // Übergang in die Ruhe: immer zeichnen, auch wenn der ETag
+                // gleich wäre — die Fußleiste fällt weg und der Stempel
+                // kommt dazu.
+                panel_ruhen(NULL);
+                ruht = true;
+            } else if (neu && !soll_ruhen) {
+                panel_zeigen(NULL, war_offline);
+            } else if (neu && soll_ruhen) {
+                // Ruhend hat sich der Inhalt geändert. Kein Teilbild: Das
+                // Bild steht danach wieder stundenlang, es soll das saubere
+                // sein.
+                panel_ruhen(NULL);
+            }
             continue;
         }
-        if (soll_ruhen && !ruht) {
-            // Übergang in die Ruhe: immer zeichnen, auch wenn der ETag gleich
-            // wäre — die Fußleiste fällt weg und der Stempel kommt dazu.
-            panel_ruhen(NULL);
-            ruht = true;
-        } else if (neu && !soll_ruhen) {
-            panel_zeigen(NULL, false);
-        } else if (neu && soll_ruhen) {
-            // Ruhend hat sich der Inhalt geändert. Kein Teilbild: Das Bild
-            // steht danach wieder stundenlang, es soll das saubere sein.
-            panel_ruhen(NULL);
-        }
+
+        // WLAN weg oder Pi nicht erreichbar: ab hier zählt die Offline-Zeit.
+        if (offline_seit_us == 0) offline_seit_us = esp_timer_get_time();
+        if (soll_ruhen) continue;   // Sperrseite hat Vorrang, nichts überschreiben
+
+        const int64_t jetzt = esp_timer_get_time();
+        const int sekunden_offline = (int)((jetzt - offline_seit_us) / 1000000);
+        // Ein kurzer Aussetzer wechselt den Schirm nicht sofort — erst nach
+        // einer vollen Intervall-Länge, und danach höchstens im selben
+        // Abstand neu, sonst kostet jeder Tastendruck während der
+        // Offline-Phase einen zusätzlichen Teilrefresh.
+        if (sekunden_offline < CONFIG_STASH_NETZ_INTERVALL_S) continue;
+        if (jetzt - offline_letzter_refresh_us < intervall_us) continue;
+        offline_letzter_refresh_us = jetzt;
+        panel_offline(sekunden_offline);
     }
 }
 

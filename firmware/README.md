@@ -117,6 +117,20 @@ und ob I2C-Timing/Pull-ups auf dem gefertigten Board ohne Weiteres funktionieren
 nur an der Hardware selbst prüfen, nicht am Quellcode. Antwortet der Chip nicht, liefert
 `akku_prozent()` `-1`, und das Gerät erfindet keinen Ersatzwert (siehe Issue #14).
 
+### Das Offline-Overlay
+
+Jede Ansicht kommt sonst fertig vom Pi — mit einer Ausnahme, die keine geben müsste, wenn sie
+vermeidbar wäre: Ist der Pi wirklich nicht erreichbar, kann er auch nicht die Ansicht liefern, die
+das anzeigen würde. `netz_task()` in `stash_main.c` misst deshalb selbst, seit wann der letzte
+Versuch fehlschlägt, und `panel_offline()` in `panel.c` zeichnet ab einer vollen Netzintervall-Länge
+(Vorgabe 30 s) die Minuten seit dem letzten Erfolg lokal aufs Panel — mit demselben kleinen
+Ziffernsatz wie das Aufnahme-Overlay, kein Text vom Pi nötig. Aktualisiert wird höchstens im
+Intervall des Netzversuchs, nicht jede Sekunde: Ein Live-Countdown auf die Sekunde bräuchte einen
+Teilrefresh pro Sekunde, und das widerspräche der ganzen Refresh-sparenden Auslegung dieses Geräts.
+Sobald der Pi wieder antwortet, holt sich das Gerät den echten Inhalt zurück (`panel_offline_ende()`)
+— auch dann, wenn die Antwort ein `304 Not Modified` ist, weil sich der Pi-Inhalt seit dem Ausfall
+gar nicht geändert hat (sonst bliebe das Overlay stehen, obwohl der Puffer längst wieder stimmt).
+
 ---
 
 ## Schritt 3 — Bauen und flashen
@@ -187,7 +201,7 @@ Beschreibung steht in [brain/README.md](../brain/README.md#die-schnittstelle).
 | `akku.c` | Akkustand über den AXP2101 (I2C), fertiges Prozent aus dem Fuel-Gauge-Register. |
 | `sdkarte.c` | Die Warteschlange auf FAT32, über SDMMC im 4-Bit-Modus. Namen sind aufsteigend, damit alphabetisch = zeitlich. |
 | `netz.c` | WLAN, mDNS, Upload, Bild holen, Tastendruck melden. |
-| `panel.c` | Bildpuffer, Refresh-Strategie, Geisterbild-Zähler, Aufnahme-Overlay. |
+| `panel.c` | Bildpuffer, Refresh-Strategie, Geisterbild-Zähler, Aufnahme- und Offline-Overlay. |
 | `panel_treiber.c` | SPI, Reset, BUSY — alles, was **nicht** vom Controller-Typ abhängt. |
 | `epd_sequenz.h` | Was vom Controller-Typ abhängt. Die eine Datei, die du füllen musst. |
 | `bedienung.c` | Vier Taster, Entprellen, Aufwachen aus dem Light-Sleep. |

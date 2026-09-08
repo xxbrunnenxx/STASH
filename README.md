@@ -284,8 +284,8 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 8. **Warteschlange** — offline seit X, Aufnahmen auf der SD-Karte mit Länge und Wartestatus,
    nächster Versuch in N Sekunden, belegter SD-Speicher und Restreichweite in Stunden. Das ist
    das Bild, das der Pi liefert, **solange das Gerät ihn noch erreichen kann** — im Showcase also
-   immer. Ein echter Ausfall (WLAN weg oder der Pi nicht erreichbar) sieht auf dem echten Gerät
-   anders aus: siehe „Was ein echter Ausfall wirklich zeigt" weiter unten.
+   immer. Ist der Pi wirklich nicht erreichbar, zeigt das echte Gerät stattdessen eine eigene,
+   gröbere Anzeige: siehe „Was ein echter Ausfall wirklich zeigt" weiter unten.
 
 ## Die Pipeline
 
@@ -342,17 +342,22 @@ zeigt einen anderen Fall:
 Zusätzlich ein Schalter **„WLAN aus"**: dann wandert die Aufnahme in die Warteschlange statt
 durchzulaufen, und die Warteschlangen-Ansicht füllt sich. Beim Wiedereinschalten läuft der Stau ab.
 
-**Was ein echter Ausfall wirklich zeigt.** Der Showcase kann „WLAN aus" simulieren, weil er in
-JavaScript lokal zeichnet. Das echte Gerät zeichnet nie lokal — jede Ansicht kommt vom Pi. Ist der
-Pi also wirklich nicht erreichbar (WLAN weg oder der Dienst selbst nicht da), kann das Gerät die
-Warteschlangen-Ansicht mit ihrem Live-Countdown gar nicht erst anfordern: `netz_task()` in der
-Firmware versucht es, bekommt keine Antwort, und lässt das Panel unverändert stehen. Kein
-„nächster Versuch in N Sekunden", keine live mitzählende Offline-Dauer — nur das zuletzt erfolgreich
-geholte Bild, eingefroren, bis die Verbindung zurückkommt. Das passt zur E-Ink-Philosophie („das
-Bild bleibt stehen"), ist aber etwas anderes, als die Ansicht oben beschreibt. Diese Seite live zu
-sehen heißt: entweder im Showcase, oder von einem Werkbank-Rechner aus manuell abgerufen
-(`curl .../v1/bild?ansicht=warteschlange`), während der Pi noch erreichbar ist — nie auf dem
-Gerät selbst während eines echten Ausfalls.
+**Was ein echter Ausfall wirklich zeigt.** Der Showcase simuliert „WLAN aus" mit einer live
+mitzählenden JavaScript-Anzeige (Sekunden, Nächster-Versuch-Countdown, volle Warteschlangen-Liste)
+— das geht dort, weil er im Browser lokal zeichnet. Das echte Gerät zeichnet sonst nie lokal, jede
+Ansicht kommt fertig vom Pi — und genau die Ansicht „der Pi ist nicht erreichbar" kann der Pi in
+dem Moment nicht liefern, in dem sie stimmen würde.
+
+Deshalb zeichnet die Firmware für diesen einen Fall doch selbst, mit derselben Technik wie beim
+Aufnahme-Overlay (eigener kleiner Ziffernsatz, kein Layout vom Pi nötig): Bleibt der Pi länger als
+ein Netzintervall (Vorgabe 30 s) nicht erreichbar, zeigt das Panel groß und mittig die Minuten, die
+er schon nicht erreichbar ist, mit einem gestrichelten Balken oben als Zustandsmarkierung. Das ist
+bewusst gröber als der Showcase: Minuten statt Sekunden, aktualisiert höchstens alle 30 Sekunden
+statt jede Sekunde — ein Live-Countdown auf die Sekunde bräuchte einen Teilrefresh pro Sekunde, und
+das widerspräche der ganzen E-Ink-Philosophie hier (jeder Refresh kostet, das Bild soll stehen
+bleiben). Die volle Warteschlangen-Ansicht mit Liste, SD-Belegung und Restreichweite bleibt dem Pi
+vorbehalten und erscheint erst wieder, sobald er zurück ist — genau wie im Showcase, nur eben nicht
+während des Ausfalls selbst.
 
 ## E-Ink-Echtheit
 
