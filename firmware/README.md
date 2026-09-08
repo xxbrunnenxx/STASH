@@ -202,8 +202,8 @@ stehen bleibt.
 
 ## Stromverbrauch
 
-Zwischen zwei Bedienungen geht der Chip in Light-Sleep und wacht bei Tastendruck oder alle 60 s
-für den Netzcheck auf. Das Panel braucht dabei nichts — E-Paper hält sein Bild ohne Strom. Die
+Zwischen zwei Bedienungen geht der Chip in Light-Sleep und wacht bei Tastendruck oder alle
+`CONFIG_STASH_NETZ_INTERVALL_S` Sekunden (Vorgabe: 30) für den Netzcheck auf. Das Panel braucht dabei nichts — E-Paper hält sein Bild ohne Strom. Die
 Laufzeit hängt fast nur daran, wie oft aufgenommen und wie oft neu gezeichnet wird.
 
 Deep-Sleep ist bewusst nicht eingeschaltet: Der Aufwachvorgang dauert lang genug, dass der Anfang

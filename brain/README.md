@@ -250,17 +250,20 @@ Inhalt eine WAV, 16 kHz mono 16 Bit. Der Dienst antwortet erst, wenn die Aufnahm
 und das Gerät löscht sie erst nach einer 200er-Antwort von der Karte. Ginge es andersherum, wäre
 eine Notiz weg, weil das WLAN im falschen Moment gewackelt hat.
 
-**`GET /v1/bild`** kennt vier Parameter:
+**`GET /v1/bild`** kennt sechs Parameter:
 
 | Parameter | Wer setzt ihn | Wofür |
 |---|---|---|
 | `ansicht` | Werkbank / Neugier | Eine bestimmte der acht Ansichten rendern, statt der aktuellen. |
 | `format=png` | Mensch | PNG statt Bitstrom — dasselbe Bild, nur ansehbar. |
+| `akku` | Gerät | Akkustand in Prozent. |
 | `wartend` | Gerät | Wie viele Aufnahmen noch auf der Karte liegen. |
 | `sd_mb` | Gerät | Wie voll die Karte ist. |
 | `ruhe=1` | Gerät | Das Gerät wird gerade nicht bedient — die Seite wird als Sperrseite gesetzt. |
 
-`wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
+`akku`, `wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
+(Stand heute schickt die Firmware `akku` noch nicht mit — siehe #14, solange bleibt der Wert auf
+der Vorgabe 100 stehen.)
 
 **Der ETag ist der Kern des Ganzen.** Jede Antwort trägt einen `ETag` über den Bildinhalt. Das
 Gerät schickt ihn beim nächsten Mal als `If-None-Match` mit und bekommt `304 Not Modified`, wenn

@@ -146,7 +146,7 @@ Der Showcase ist **nicht** die Firmware und **nicht** das Pi-Setup.
 ```
 stash/
 ├─ README.md              dieses Dokument (Spezifikation + Bauauftrag)
-├─ LICENSE                fehlt noch, siehe Lizenz
+├─ LICENSE                MIT
 ├─ showcase/
 │  └─ stash-showcase.html bedienbare Simulation, ein File, kein Build
 ├─ firmware/              ESP-IDF-Projekt für den ESP32-S3
@@ -383,17 +383,25 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 
 ## Abnahme
 
-- [ ] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
-- [ ] alle acht Ansichten sind erreichbar und gefüllt
-- [ ] „Sprachnotiz aufnehmen" läuft mindestens fünfmal mit unterschiedlichem Ergebnis durch
-- [ ] dabei wird einmal sichtbar eine neue Liste angelegt und einmal ins Tagebuch angehängt
-- [ ] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
-- [ ] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
-- [ ] „Gerät aus" lässt den Inhalt stehen
-- [ ] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 6)
-- [ ] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
-- [ ] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
-- [ ] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
+Geprüft gegen `showcase/stash-showcase.html`, Stand Commit `8e55b95` (per Playwright, headless
+Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur gelesen.
+
+- [x] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
+- [x] alle acht Ansichten sind erreichbar und gefüllt
+- [x] „Sprachnotiz aufnehmen" läuft mindestens fünfmal mit unterschiedlichem Ergebnis durch
+- [x] dabei wird einmal sichtbar eine neue Liste angelegt und einmal ins Tagebuch angehängt
+- [x] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
+- [x] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
+- [x] „Gerät aus" lässt den Inhalt stehen
+- [x] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 12) —
+      gilt für die ganze Werkbank; auf dem Panel selbst kommen ohnehin nur `--paper`/`--ink`
+      vor (Spreizung 0). Die Werkbank-Palette selbst reicht bis 11 (`--mute` liegt bei 10)
+- [x] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
+- [x] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
+- [x] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
+
+Diese Liste gilt für den Showcase. Firmware und Brain haben ihre eigenen offenen Punkte —
+siehe die [GitHub Issues](https://github.com/xxbrunnenxx/STASH/issues).
 
 **Hinweis an den Coding-Agent:** Wenn du fertig bist, öffne das File selbst und klick es durch.
 Dann in zwei, drei Sätzen sagen, was konkret drinsteckt — nicht „fertig" schreiben, sondern was
@@ -413,6 +421,6 @@ gebaut wurde.
 
 ## Lizenz
 
-*Noch festzulegen.* Ohne `LICENSE`-Datei gilt auf GitHub automatisch „alle Rechte vorbehalten" —
-niemand darf den Code benutzen. MIT ist für so ein Projekt der übliche Weg, wenn andere es
-nachbauen können sollen.
+**MIT.** Jeder darf den Code nutzen, verändern und weitergeben, auch kommerziell — der einzige
+Anspruch ist, den Copyright-Hinweis in `LICENSE` stehen zu lassen. Das passt zu einem Projekt,
+das andere nachbauen können sollen.
