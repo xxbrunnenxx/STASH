@@ -26,11 +26,14 @@ from .einstellungen import Einstellungen, laden
 from .schlagworte import schlagworte
 from .transkript import Transkribierer
 from .vault import Vault
-from .zustand import Notiz, Zustand
+from .zustand import ANSICHTEN, Notiz, Zustand
 
 log = logging.getLogger("stash")
 
-app = FastAPI(title="STASH Brain", docs_url=None, redoc_url=None)
+# openapi_url=None zusätzlich zu docs_url/redoc_url: Sonst bleibt das
+# vollständige Schema unter /openapi.json erreichbar, obwohl die Absicht
+# offensichtlich war, die API-Struktur nicht öffentlich zu machen.
+app = FastAPI(title="STASH Brain", docs_url=None, redoc_url=None, openapi_url=None)
 
 E: Einstellungen
 VAULT: Vault
@@ -126,7 +129,12 @@ async def notiz_annehmen(datei: UploadFile = File(...)):
 # ── Anzeige ──────────────────────────────────────────────────────────────────
 
 def _blatt(ansicht: str | None):
-    if ansicht:
+    # Nur eine der acht bekannten Ansichten wird übernommen. Ohne diese Prüfung
+    # landet ein beliebiger Query-String direkt im geteilten Zustand und wird
+    # später ungefiltert in den Antwort-Header X-Stash-Ansicht gespiegelt —
+    # ein Wert mit \r\n dort bringt die HTTP-Schicht zum Absturz (per h11
+    # LocalProtocolError nachgewiesen, siehe Issue #8).
+    if ansicht and ansicht in ANSICHTEN:
         Z.ansicht = ansicht
     eintraege, aufgaben = _detail_daten()
     return seiten.seite(Z, VAULT.listen, eintraege=eintraege, aufgaben=aufgaben,
