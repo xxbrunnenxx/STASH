@@ -12,6 +12,7 @@ static const char *TAG = "epd";
 static uint8_t *puffer;        // 480 x 800, 1 Bit, 0 = schwarz
 static uint8_t *vor_aufnahme;  // was vor dem Overlay auf dem Schirm stand
 static bool gesichert;         // Overlay aktiv, Untergrund liegt in vor_aufnahme
+static bool schlaeft;          // Panel stromlos, Bild steht
 static int partial;
 
 #define ZEILE_BYTES (PANEL_BREITE / 8)
@@ -76,6 +77,15 @@ esp_err_t panel_zeigen(const uint8_t *bild, bool voll_erzwingen)
     if (bild) memcpy(puffer, bild, PANEL_BYTES);
     if (!epd_bereit()) return ESP_ERR_INVALID_STATE;
 
+    if (schlaeft) {
+        // Aus der Ruhe kommend ist der Controller stromlos; ohne Wecken ginge
+        // das Schreiben ins Leere und der Schirm bliebe stehen.
+        epd_wecken();
+        schlaeft = false;
+        voll_erzwingen = true;
+        partial = 0;
+    }
+
     if (voll_erzwingen || partial >= PANEL_PARTIAL_MAX) {
         esp_err_t e = epd_vollbild(puffer);
         partial = 0;
@@ -89,7 +99,27 @@ esp_err_t panel_zeigen(const uint8_t *bild, bool voll_erzwingen)
     return e;
 }
 
-void panel_schlafen(void) { epd_schlafen(); }
+esp_err_t panel_ruhen(const uint8_t *bild)
+{
+    if (bild) memcpy(puffer, bild, PANEL_BYTES);
+    if (!epd_bereit()) return ESP_ERR_INVALID_STATE;
+
+    if (schlaeft) {
+        // Ruhend, aber der Inhalt hat sich geändert: wecken, neu zeichnen,
+        // wieder schlafen legen. Ein stromloser Controller nimmt nichts an.
+        epd_wecken();
+        schlaeft = false;
+    }
+
+    esp_err_t e = epd_vollbild(puffer);
+    partial = 0;
+    epd_schlafen();
+    schlaeft = true;
+    ESP_LOGI(TAG, "Sperrseite · Vollrefresh · Panel stromlos, Bild steht");
+    return e;
+}
+
+void panel_schlafen(void) { epd_schlafen(); schlaeft = true; }
 
 // Das Overlay wird lokal gezeichnet: Auf den Beginn einer Aufnahme darf man
 // nicht warten, und eine Runde zum Pi und zurück wären hunderte Millisekunden.

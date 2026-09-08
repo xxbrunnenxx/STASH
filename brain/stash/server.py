@@ -154,7 +154,7 @@ def _detail_daten() -> tuple[list[tuple[str, str]], list[tuple[str, bool]]]:
 @app.get("/v1/bild")
 async def bild(anfrage: Request, ansicht: str | None = None, format: str = "roh",
                akku: int | None = None, wartend: int | None = None,
-               sd_mb: int | None = None):
+               sd_mb: int | None = None, ruhe: int | None = None):
     # Was nur das Gerät weiß, sagt das Gerät: Akkustand, wie viel noch auf der
     # Karte liegt, wie voll sie ist. Der Pi rät das nicht.
     if akku is not None:
@@ -164,6 +164,10 @@ async def bild(anfrage: Request, ansicht: str | None = None, format: str = "roh"
     if sd_mb is not None:
         global SD_BELEGT_MB
         SD_BELEGT_MB = max(0, sd_mb)
+    # Ob es ruht, weiß nur das Gerät — es zählt die Zeit seit dem letzten
+    # Tastendruck. Der Pi soll das nicht raten.
+    if ruhe is not None:
+        Z.ruhe = bool(ruhe)
 
     b = _blatt(ansicht)
     daten = b.bytes()
@@ -203,6 +207,7 @@ async def zustand():
 @app.post("/v1/bedienung")
 async def bedienung(daten: dict):
     taste = daten.get("taste", "")
+    Z.ruhe = False          # wer drückt, bedient — dann gilt wieder die Fußleiste
     if taste == "zurueck":
         Z.blaettern(-1)
     elif taste == "weiter":
@@ -221,6 +226,7 @@ async def nachtlauf_jetzt():
     VAULT.listen = Vault(E).listen
     if bericht["verdichtet"]:
         Z.morgenseite = bericht["verdichtet"]
+    Z.geklaert = bericht["geklaert"]
     return {k: v for k, v in bericht.items() if k != "verdichtet"} | {
         "verdichtet": bool(bericht["verdichtet"])}
 

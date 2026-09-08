@@ -13,6 +13,11 @@ esp_err_t panel_init(void);
 esp_err_t panel_zeigen(const uint8_t *bild, bool voll_erzwingen);
 
 int  panel_partial_zaehler(void);
+
+// In die Ruhe gehen: einmal sauber durchzeichnen, dann das Panel stromlos
+// machen. Der Vollrefresh kostet hier nichts — es sieht gerade niemand hin,
+// und danach steht das Bild stundenlang.
+esp_err_t panel_ruhen(const uint8_t *bild);
 void panel_schlafen(void);
 
 // Während der Aufnahme: laufende Zeit und Pegel, ohne Netz.

@@ -254,6 +254,8 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 
 1. **Heute** — Datum groß in Literata, darunter durch Linien getrennt: nächste Kalendertermine,
    fällige Erinnerungen mit Kästchen, Eingangs-Zähler mit Anriss der letzten Notiz, Tagebuch-Zähler.
+   Nach dem Nachtlauf steht hier stattdessen dessen verdichtete Seite. **Heute ist zugleich die
+   Sperrseite** — siehe unten.
 2. **Eingang** — Liste der Aufnahmen von heute: Uhrzeit, Länge, erste Zeile der bereinigten Fassung,
    Schlagwort-Chips, Status (verarbeitet / in Warteschlange). Anklickbar → Ansicht 5.
 3. **Listen** — der Kern. Drei Blöcke:
@@ -340,6 +342,14 @@ Die Details, an denen es hängt:
   Inhalts, und ein Zähler `Partial 7/12 → Vollrefresh fällig`. Nach dem Vollrefresh ist er weg.
 - **„Gerät aus"**: Statusleiste und Fußleiste verschwinden, der Inhalt bleibt stehen, kleiner
   Hinweis unten. E-Paper hält das Bild ohne Strom — das ist der Witz an der Sache, zeig ihn.
+- **Sperrseite**: Nach drei Minuten ohne Tastendruck fällt das Gerät von selbst auf **Heute**
+  zurück, zeichnet einmal komplett durch und legt das Panel stromlos. Damit ist dieselbe
+  Eigenschaft nicht nur vorgeführt, sondern benutzt: Das Gerät ist im Leerlauf kein dunkler
+  Schirm und kein Standbild von irgendwas, sondern ein Aushang, den man im Vorbeigehen liest.
+  Ruhend fällt die Fußleiste weg — 34 Pixel mehr Inhalt —, und aus der Uhrzeit wird `Stand 06:12`:
+  Auf einem Bild, das stundenlang steht, ist „von wann ist das hier" die nützlichste Angabe, und
+  ohne das Wort davor hielte man sie für eine laufende Uhr. Die Seite wird ruhend voller gesetzt
+  als bedient — was nur angeschaut und nicht durchgeblättert wird, hat nur das, was draufsteht.
 - Auswahl/Markierung immer als invertierter Block, nie als Farbfläche.
 - Akku in Prozent **und** geschätzten Tagen Restlaufzeit.
 

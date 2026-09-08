@@ -112,4 +112,11 @@ menu "STASH Netz"
     config STASH_NETZ_INTERVALL_S
         int "Sekunden zwischen zwei Netzversuchen"
         default 30
+    config STASH_RUHE_NACH_S
+        int "Sekunden ohne Bedienung bis zur Sperrseite"
+        default 180
+        help
+            Danach fällt das Gerät auf „Heute" zurück, zeichnet einmal sauber
+            durch und legt das Panel schlafen. E-Paper hält das Bild ohne
+            Strom — die Seite steht dann, bis wieder jemand drückt.
 endmenu
