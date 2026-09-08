@@ -16,10 +16,12 @@ esp_err_t netz_hochladen(const char *pfad);
 // hat — unverändert heißt: nicht zeichnen. Jeder Refresh kostet Strom und
 // hinterlässt Geisterbild.
 //
-// `wartend` und `sd_mb` gehen mit: Was nur das Gerät weiß, sagt das Gerät —
-// der Pi rät nicht, wie viel noch auf der Karte liegt.
-esp_err_t netz_bild_holen(unsigned char *puffer, bool *neu, int wartend, int sd_mb,
-                          bool ruhe);
+// `akku`, `wartend` und `sd_mb` gehen mit: Was nur das Gerät weiß, sagt das
+// Gerät — der Pi rät weder den Akkustand noch, wie viel noch auf der Karte
+// liegt. `akku` ist -1, wenn der AXP2101 nicht antwortet; der Pi behält dann
+// seinen letzten bekannten Wert.
+esp_err_t netz_bild_holen(unsigned char *puffer, bool *neu, int akku, int wartend,
+                          int sd_mb, bool ruhe);
 
 // „zurueck" · „oeffnen" · „weiter" — das Brain entscheidet, was daraus wird.
 esp_err_t netz_bedienung(const char *was);

@@ -222,7 +222,9 @@ async def bild(anfrage: Request, ansicht: str | None = None, format: str = "roh"
                sd_mb: int | None = None, ruhe: int | None = None):
     # Was nur das Gerät weiß, sagt das Gerät: Akkustand, wie viel noch auf der
     # Karte liegt, wie voll sie ist. Der Pi rät das nicht.
-    if akku is not None:
+    # -1 heißt: Der AXP2101 hat nicht geantwortet — dann bleibt der zuletzt
+    # bekannte Stand stehen, statt ihn durch eine erfundene 0 zu ersetzen.
+    if akku is not None and akku >= 0:
         Z.akku = max(0, min(100, akku))
     if wartend is not None:
         Z.wartend = max(0, wartend)

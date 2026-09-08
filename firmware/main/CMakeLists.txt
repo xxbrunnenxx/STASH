@@ -3,6 +3,7 @@ idf_component_register(
        "board.c"
        "sdkarte.c"
        "audio.c"
+       "akku.c"
        "netz.c"
        "panel.c"
        "panel_treiber.c"

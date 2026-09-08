@@ -56,26 +56,22 @@ das ist dann kein Fehler im Projekt.
 
 ---
 
-## Schritt 2 — Pinbelegung eintragen
+## Schritt 2 — Pinbelegung prüfen
 
-**Das ist der eine Schritt, den dir niemand abnehmen kann.** In diesem Repo stehen keine
-Pin-Nummern, weil sie im öffentlichen Datenblatt nicht stehen — und erfundene Pins wären
-schlimmer als gar keine: Der Build liefe durch, das Gerät bliebe schwarz, und du suchtest den
-Fehler in der Software.
+Die Pin-Nummern stehen nicht im öffentlichen Datenblatt, aber in Waveshares eigenem
+Referenzprojekt für genau dieses Board (github.com/waveshareteam/ESP32-S3-ePaper-3.97,
+ESP-IDF-Beispiel 08). Von dort stammen die Vorgabewerte, die in `Kconfig.projbuild` bereits
+eingetragen sind — E-Paper-SPI, SD-Karte (SDMMC, 4-Bit), I2C-Bus, Audio, Bedienung und der
+AXP2101-Akkubaustein. Nichts davon ist mehr geraten.
 
-Die Nummern stehen an zwei Stellen:
-
-- im **Schaltplan** auf der Waveshare-Wiki-Seite des Boards,
-- in Waveshares eigenem Demo-Code, üblicherweise in einer Datei wie `EPD_GPIO.h` /
-  `DEV_Config.h` — dort als `EPD_CS_PIN`, `EPD_DC_PIN`, `EPD_RST_PIN`, `EPD_BUSY_PIN` usw.
-
-Übertragen wird das hier hinein:
+Trotzdem lohnt der Blick in `idf.py menuconfig`, bevor du baust — falls deine Revision des Boards
+abweicht, oder du einen Pin bewusst umbelegen willst:
 
 ```bash
 cd firmware
 idf.py set-target esp32s3
 idf.py menuconfig
-#   → STASH Board  → alle Pins unter „E-Paper", „SD-Karte", „Audio (ES8311)", „Bedienung"
+#   → STASH Board  → E-Paper, SD-Karte, I2C-Bus, Audio, Bedienung, Akku (AXP2101)
 #   → STASH Netz   → WLAN-SSID, WLAN-Passwort, Brain-Adresse
 ```
 
@@ -83,9 +79,13 @@ idf.py menuconfig
 gehört **nicht** ins Repo — `.gitignore` hält sie draußen. Die Vorgaben für alle anderen tausend
 Optionen stehen in `sdkconfig.defaults` und sind eingecheckt.
 
-Solange die Pins auf ihrem Vorgabewert `-1` stehen, startet die Firmware **absichtlich nicht**
-weiter, sondern schreibt auf die serielle Konsole, welcher Pin fehlt. Ein Gerät, das nicht sagt,
-was ihm fehlt, kostet einen Abend.
+Ein Pin auf `-1` (nur noch bei „E-Paper PWR" als Vorgabe, weil das Panel auf dem Referenzboard
+dauerhaft versorgt wird) heißt: nicht verdrahtet. Fehlt ein Pin, den die Firmware zwingend
+braucht, startet sie **absichtlich nicht** weiter, sondern schreibt auf die serielle Konsole,
+welcher Pin das ist. Ein Gerät, das nicht sagt, was ihm fehlt, kostet einen Abend.
+
+WLAN-SSID, WLAN-Passwort und Brain-Adresse trägst du weiterhin selbst ein — die stehen aus gutem
+Grund in keinem Referenzcode.
 
 ### Der E-Paper-Treiber
 
@@ -95,6 +95,27 @@ initialisieren, Vollbild schreiben, Teilbild schreiben, schlafen legen, aufwecke
 Demo-Treiber hat, füllt die fünf Funktionen damit aus; alles darüber (Warteschlange,
 Geisterbild-Zähler, Refresh-Strategie) bleibt unverändert. Die Datei sagt oben, was jede Funktion
 liefern muss.
+
+Welche Kommandobytes der Controller versteht, ist inzwischen aus Waveshares Referenzcode für
+dieses Board bestätigt (SWRESET, Data-Entry-Mode, RAM-Fenster, drei Trigger-Varianten für
+Vollbild/Schnell/Partial) — nachzulesen in den Kommentaren in `main/epd_sequenz.h`. Zwei Fragen
+bleiben trotzdem offen, weil sie sich nur an echter Hardware beantworten lassen, nicht aus dem
+Quellcode: ob und wie zwischen Vollbild- und Schnellmodus innerhalb einer Sitzung gewechselt
+werden kann, und in welche Richtung der Bildpuffer gedreht werden muss (unser Puffer ist hochkant
+480 × 800, das native RAM des Panels ist querformatig 800 × 480 — die Drehrichtung hängt vom
+physischen Einbau ab).
+
+### Der Akku (AXP2101)
+
+Der Power-Management-Chip ist ein AXP2101 auf I2C-Adresse `0x34`, mit eigenem Ladungszähler
+(„Fuel Gauge"): Der Chip berechnet den Akkustand selbst und legt ihn direkt als Prozentzahl in ein
+Register — `main/akku.c` liest nur dieses eine Register. Bestätigt über Waveshares Referenzcode für
+dieses Board (siehe Kommentar in `main/akku.h`); dort verwendet, nicht kopiert.
+
+Unbestätigt bleibt, ob Register- und Bit-Semantik am echten Chip exakt wie dokumentiert reagieren
+und ob I2C-Timing/Pull-ups auf dem gefertigten Board ohne Weiteres funktionieren — das lässt sich
+nur an der Hardware selbst prüfen, nicht am Quellcode. Antwortet der Chip nicht, liefert
+`akku_prozent()` `-1`, und das Gerät erfindet keinen Ersatzwert (siehe Issue #14).
 
 ---
 
@@ -149,7 +170,7 @@ Ein Weg, zwei Richtungen, beides HTTP:
 | Wann | Was |
 |---|---|
 | Nach jeder Aufnahme | `POST /v1/notiz`, `multipart/form-data`, Feld `datei`, Inhalt die WAV. Gelöscht wird von der Karte **erst nach einer 200er-Antwort** — sonst wäre eine Notiz weg, weil das WLAN gewackelt hat. |
-| Alle 30 s und nach jedem Tastendruck | `GET /v1/bild?wartend=…&sd_mb=…&ruhe=…` mit `If-None-Match`. Kommt `304`, wird nicht gezeichnet. |
+| Alle 30 s und nach jedem Tastendruck | `GET /v1/bild?akku=…&wartend=…&sd_mb=…&ruhe=…` mit `If-None-Match`. Kommt `304`, wird nicht gezeichnet. `akku` ist -1, wenn der AXP2101 nicht antwortet — der Pi behält dann seinen letzten bekannten Wert. |
 | Bei Drehknopf | `POST /v1/bedienung`, `{"taste":"zurueck"\|"oeffnen"\|"weiter"}`. |
 
 Der ETag ist nicht Feinschliff, sondern der Grund, warum das Gerät überhaupt regelmäßig fragen
@@ -163,7 +184,8 @@ Beschreibung steht in [brain/README.md](../brain/README.md#die-schnittstelle).
 | `stash_main.c` | Der Ablauf: Tasten lesen, aufnehmen, Netz-Task anstoßen. |
 | `board.h` / `board.c` | Maße, Grenzen, und die Prüfung, ob alle Pins gesetzt sind. |
 | `audio.c` | ES8311 und I2S, WAV-Kopf, Pegel für die Wellenform. |
-| `sdkarte.c` | Die Warteschlange auf FAT32. Namen sind aufsteigend, damit alphabetisch = zeitlich. |
+| `akku.c` | Akkustand über den AXP2101 (I2C), fertiges Prozent aus dem Fuel-Gauge-Register. |
+| `sdkarte.c` | Die Warteschlange auf FAT32, über SDMMC im 4-Bit-Modus. Namen sind aufsteigend, damit alphabetisch = zeitlich. |
 | `netz.c` | WLAN, mDNS, Upload, Bild holen, Tastendruck melden. |
 | `panel.c` | Bildpuffer, Refresh-Strategie, Geisterbild-Zähler, Aufnahme-Overlay. |
 | `panel_treiber.c` | SPI, Reset, BUSY — alles, was **nicht** vom Controller-Typ abhängt. |

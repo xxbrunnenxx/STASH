@@ -108,7 +108,7 @@ Tatsache auftauchen:
 | Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** | bestätigt |
 | Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss | bestätigt |
 | Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU | bestätigt |
-| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C | bestätigt |
+| Strom | AXP2101 Power-Management (I2C 0x34, eigener Ladungszähler), 3,7 V Li-Akku über MX1.25, USB-C | bestätigt — korrigiert, siehe unten |
 | Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT | bestätigt |
 | Funk | 2,4 GHz WLAN (b/g/n), BLE 5 (LE) | bestätigt |
 
@@ -116,6 +116,13 @@ Tatsache auftauchen:
 liegt auf der seitlichen BOOT-Taste und ist dadurch aus jeder Ansicht erreichbar, ohne vorher
 irgendwohin navigieren zu müssen — genau das verlangt „Knopf drücken, drauflosreden, fertig".
 PWR bleibt der Stromversorgung vorbehalten.
+
+**Korrektur „TG28" → AXP2101.** Das öffentliche Datenblatt nennt den Power-Management-Chip nicht
+beim Namen; „TG28" stand hier ohne Beleg. Waveshares eigenes Referenzprojekt für dieses Board
+(github.com/waveshareteam/ESP32-S3-ePaper-3.97) benutzt durchgängig einen AXP2101 auf I2C-Adresse
+0x34 — das ist jetzt die bestätigte Angabe. Der Chip hat einen eigenen Ladungszähler und legt den
+Akkustand direkt als Prozentzahl in ein Register, ohne dass eine Kapazitätsangabe nötig wäre (siehe
+Issue #14).
 
 **Brain:** Raspberry Pi 5, 16 GB RAM, 1 TB NVMe-SSD, aktive Kühlung.
 

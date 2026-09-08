@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "akku.h"
 #include "audio.h"
 #include "bedienung.h"
 #include "board.h"
@@ -77,8 +78,8 @@ static void netz_task(void *arg)
             (esp_timer_get_time() - letzte_bedienung_us) / 1000000 >= CONFIG_STASH_RUHE_NACH_S;
 
         bool neu = false;
-        if (netz_bild_holen(panel_puffer(), &neu, sd_warteschlange_anzahl(),
-                            belegt_mb, soll_ruhen) != ESP_OK) {
+        if (netz_bild_holen(panel_puffer(), &neu, akku_prozent(),
+                            sd_warteschlange_anzahl(), belegt_mb, soll_ruhen) != ESP_OK) {
             continue;
         }
         if (soll_ruhen && !ruht) {
@@ -176,6 +177,7 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(audio_init());
+    akku_init();           // darf scheitern: dann bleibt der Akkustand -1
     bedienung_init();
     netz_init();          // darf scheitern: dann bleibt alles auf der Karte
 

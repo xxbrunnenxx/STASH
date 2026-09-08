@@ -267,8 +267,8 @@ eine Notiz weg, weil das WLAN im falschen Moment gewackelt hat.
 | `ruhe=1` | Gerät | Das Gerät wird gerade nicht bedient — die Seite wird als Sperrseite gesetzt. |
 
 `akku`, `wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
-(Stand heute schickt die Firmware `akku` noch nicht mit — siehe #14, solange bleibt der Wert auf
-der Vorgabe 100 stehen.)
+`akku` ist -1, wenn der AXP2101 auf dem Gerät nicht antwortet — dann bleibt der zuletzt bekannte
+Stand stehen, statt ihn durch eine erfundene 0 zu ersetzen (siehe #14).
 
 **Der ETag ist der Kern des Ganzen.** Jede Antwort trägt einen `ETag` über den Bildinhalt. Das
 Gerät schickt ihn beim nächsten Mal als `If-None-Match` mit und bekommt `304 Not Modified`, wenn

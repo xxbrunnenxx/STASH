@@ -141,15 +141,15 @@ esp_err_t netz_hochladen(const char *pfad)
     return err;
 }
 
-esp_err_t netz_bild_holen(unsigned char *puffer, bool *neu, int wartend, int sd_mb,
-                          bool ruhe)
+esp_err_t netz_bild_holen(unsigned char *puffer, bool *neu, int akku, int wartend,
+                          int sd_mb, bool ruhe)
 {
     if (neu) *neu = false;
     if (!netz_verbunden()) return ESP_ERR_INVALID_STATE;
 
     char url[224];
-    snprintf(url, sizeof(url), "%s/v1/bild?wartend=%d&sd_mb=%d&ruhe=%d",
-             basis, wartend, sd_mb, ruhe ? 1 : 0);
+    snprintf(url, sizeof(url), "%s/v1/bild?akku=%d&wartend=%d&sd_mb=%d&ruhe=%d",
+             basis, akku, wartend, sd_mb, ruhe ? 1 : 0);
 
     esp_http_client_config_t cfg = { .url = url, .method = HTTP_METHOD_GET, .timeout_ms = 15000 };
     esp_http_client_handle_t c = esp_http_client_init(&cfg);
