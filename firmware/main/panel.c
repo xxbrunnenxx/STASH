@@ -72,18 +72,26 @@ esp_err_t panel_init(void)
 uint8_t *panel_puffer(void)     { return puffer; }
 int panel_partial_zaehler(void) { return partial; }
 
+// Aus der Ruhe kommend ist der Controller stromlos; ohne Wecken ginge jedes
+// Schreiben — Vollbild, Teilbild oder das Aufnahme-Overlay — ins Leere.
+// Eine Stelle für den Check, damit sie nicht an einem der drei Aufrufer
+// vorbeirutscht, so wie es panel_aufnahme() vor diesem Fix tat.
+static void aufwachen(void)
+{
+    if (!schlaeft) return;
+    epd_wecken();
+    schlaeft = false;
+    partial = 0;
+}
+
 esp_err_t panel_zeigen(const uint8_t *bild, bool voll_erzwingen)
 {
     if (bild) memcpy(puffer, bild, PANEL_BYTES);
     if (!epd_bereit()) return ESP_ERR_INVALID_STATE;
 
     if (schlaeft) {
-        // Aus der Ruhe kommend ist der Controller stromlos; ohne Wecken ginge
-        // das Schreiben ins Leere und der Schirm bliebe stehen.
-        epd_wecken();
-        schlaeft = false;
+        aufwachen();
         voll_erzwingen = true;
-        partial = 0;
     }
 
     if (voll_erzwingen || partial >= PANEL_PARTIAL_MAX) {
@@ -104,12 +112,9 @@ esp_err_t panel_ruhen(const uint8_t *bild)
     if (bild) memcpy(puffer, bild, PANEL_BYTES);
     if (!epd_bereit()) return ESP_ERR_INVALID_STATE;
 
-    if (schlaeft) {
-        // Ruhend, aber der Inhalt hat sich geändert: wecken, neu zeichnen,
-        // wieder schlafen legen. Ein stromloser Controller nimmt nichts an.
-        epd_wecken();
-        schlaeft = false;
-    }
+    // Ruhend, aber der Inhalt hat sich geändert: wecken, neu zeichnen,
+    // wieder schlafen legen. Ein stromloser Controller nimmt nichts an.
+    aufwachen();
 
     esp_err_t e = epd_vollbild(puffer);
     partial = 0;
@@ -125,6 +130,11 @@ void panel_schlafen(void) { epd_schlafen(); schlaeft = true; }
 // nicht warten, und eine Runde zum Pi und zurück wären hunderte Millisekunden.
 void panel_aufnahme(float sekunden, float pegel)
 {
+    // Wird die BOOT-Taste aus der Sperrseiten-Ruhe heraus gedrückt, muss der
+    // Controller vor dem ersten Overlay-Frame wach sein — sonst schreibt
+    // epd_teilbild() unten ins Leere, und der Aufnahmebeginn zeigt nichts an.
+    aufwachen();
+
     if (!gesichert) { memcpy(vor_aufnahme, puffer, PANEL_BYTES); gesichert = true; }
 
     memset(puffer, 0xFF, PANEL_BYTES);
