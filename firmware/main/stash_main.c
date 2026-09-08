@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "akku.h"
 #include "audio.h"
 #include "bedienung.h"
 #include "board.h"
@@ -18,6 +19,7 @@
 #include "sdkarte.h"
 
 #include "esp_log.h"
+#include "esp_pm.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -40,28 +42,37 @@ static volatile bool ruht;
 // dass das Panel die ganze Aufnahme über durchwischt.
 #define OVERLAY_MS 700
 
+// Seit wann der Pi nicht mehr erreichbar ist (0 = gerade verbunden), und
+// wann das Offline-Overlay zuletzt neu gezeichnet wurde — beides lokal, weil
+// in genau diesem Fall keine Anfrage beim Pi möglich ist, die es liefern
+// könnte.
+static int64_t offline_seit_us;
+static int64_t offline_letzter_refresh_us;
+
 // Arbeitet die Warteschlange ab und holt danach das aktuelle Bild.
 static void netz_task(void *arg)
 {
     const TickType_t intervall = pdMS_TO_TICKS(CONFIG_STASH_NETZ_INTERVALL_S * 1000);
+    const int64_t intervall_us = (int64_t)CONFIG_STASH_NETZ_INTERVALL_S * 1000000;
 
     while (true) {
         // Wecken durch eine neue Aufnahme oder einen Tastendruck; sonst nach
         // Ablauf des Intervalls von selbst.
         ulTaskNotifyTake(pdTRUE, intervall);
 
-        if (!netz_verbunden()) continue;
-
-        char pfad[64];
-        int hoch = 0;
-        while (sd_aeltester(pfad, sizeof(pfad))) {
-            if (netz_hochladen(pfad) != ESP_OK) break;   // beim nächsten Versuch weiter
-            unlink(pfad);                                // erst nach bestätigtem Empfang
-            hoch++;
-        }
-        if (hoch) {
-            ESP_LOGI(TAG, "%d Aufnahme%s übertragen · %d warten noch",
-                     hoch, hoch == 1 ? "" : "n", sd_warteschlange_anzahl());
+        const bool erreichbar = netz_verbunden();
+        if (erreichbar) {
+            char pfad[64];
+            int hoch = 0;
+            while (sd_aeltester(pfad, sizeof(pfad))) {
+                if (netz_hochladen(pfad) != ESP_OK) break;   // beim nächsten Versuch weiter
+                unlink(pfad);                                // erst nach bestätigtem Empfang
+                hoch++;
+            }
+            if (hoch) {
+                ESP_LOGI(TAG, "%d Aufnahme%s übertragen · %d warten noch",
+                         hoch, hoch == 1 ? "" : "n", sd_warteschlange_anzahl());
+            }
         }
 
         // Nicht ins Panel schreiben, während das Aufnahme-Overlay läuft —
@@ -76,22 +87,64 @@ static void netz_task(void *arg)
             (esp_timer_get_time() - letzte_bedienung_us) / 1000000 >= CONFIG_STASH_RUHE_NACH_S;
 
         bool neu = false;
-        if (netz_bild_holen(panel_puffer(), &neu, sd_warteschlange_anzahl(),
-                            belegt_mb, soll_ruhen) != ESP_OK) {
+        const esp_err_t bild_err = erreichbar
+            ? netz_bild_holen(panel_puffer(), &neu, akku_prozent(),
+                              sd_warteschlange_anzahl(), belegt_mb, soll_ruhen)
+            : ESP_ERR_INVALID_STATE;
+
+        if (bild_err == ESP_OK) {
+            const bool war_offline = offline_seit_us != 0;
+            offline_seit_us = 0;
+            offline_letzter_refresh_us = 0;
+            if (war_offline) {
+                // Der Schirm zeigt gerade das Offline-Overlay, nicht den
+                // zuletzt bekannten Pi-Inhalt — der muss auf jeden Fall neu
+                // aufs Panel, auch wenn der ETag laut ihm unverändert wäre.
+                panel_offline_ende(neu);
+                neu = true;
+            }
+            if (soll_ruhen && !ruht) {
+                // Übergang in die Ruhe: immer zeichnen, auch wenn der ETag
+                // gleich wäre — die Fußleiste fällt weg und der Stempel
+                // kommt dazu.
+                panel_ruhen(NULL);
+                ruht = true;
+            } else if (neu && !soll_ruhen) {
+                panel_zeigen(NULL, war_offline);
+            } else if (neu && soll_ruhen) {
+                // Ruhend hat sich der Inhalt geändert. Kein Teilbild: Das
+                // Bild steht danach wieder stundenlang, es soll das saubere
+                // sein.
+                panel_ruhen(NULL);
+            }
             continue;
         }
-        if (soll_ruhen && !ruht) {
-            // Übergang in die Ruhe: immer zeichnen, auch wenn der ETag gleich
-            // wäre — die Fußleiste fällt weg und der Stempel kommt dazu.
-            panel_ruhen(NULL);
-            ruht = true;
-        } else if (neu && !soll_ruhen) {
-            panel_zeigen(NULL, false);
-        } else if (neu && soll_ruhen) {
-            // Ruhend hat sich der Inhalt geändert. Kein Teilbild: Das Bild
-            // steht danach wieder stundenlang, es soll das saubere sein.
-            panel_ruhen(NULL);
+
+        // WLAN weg oder Pi nicht erreichbar: ab hier zählt die Offline-Zeit.
+        if (offline_seit_us == 0) offline_seit_us = esp_timer_get_time();
+
+        if (soll_ruhen) {
+            // Die Sperrseite hat Vorrang vor dem Offline-Overlay — aber sie
+            // muss trotzdem einmal tatsächlich einsetzen. Ohne diesen Zweig
+            // bliebe der Controller ohne Grund wach, nur weil gerade kein Pi
+            // da ist: Er legt sich mit dem, was gerade im Puffer steht
+            // (letztes Pi-Bild oder Overlay), schlafen — ohne den frisch
+            // vom Pi gerenderten „Stand HH:MM"-Stempel, den es hier nicht
+            // geben kann.
+            if (!ruht) { panel_ruhen(NULL); ruht = true; }
+            continue;
         }
+
+        const int64_t jetzt = esp_timer_get_time();
+        const int sekunden_offline = (int)((jetzt - offline_seit_us) / 1000000);
+        // Ein kurzer Aussetzer wechselt den Schirm nicht sofort — erst nach
+        // einer vollen Intervall-Länge, und danach höchstens im selben
+        // Abstand neu, sonst kostet jeder Tastendruck während der
+        // Offline-Phase einen zusätzlichen Teilrefresh.
+        if (sekunden_offline < CONFIG_STASH_NETZ_INTERVALL_S) continue;
+        if (jetzt - offline_letzter_refresh_us < intervall_us) continue;
+        offline_letzter_refresh_us = jetzt;
+        panel_offline(sekunden_offline);
     }
 }
 
@@ -148,6 +201,19 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    // CONFIG_PM_ENABLE allein schaltet nur dynamische Taktskalierung ein.
+    // Automatisches Light-Sleep zwischen zwei Bedienungen braucht diesen
+    // ausdrücklichen Aufruf — ohne ihn bleibt der Chip im getakteten Idle,
+    // egal was die Kconfig-Optionen sagen. WLAN und I2S nehmen sich während
+    // aktiver Übertragung selbst eine Taktsperre (ESP-IDF-Treiberverhalten),
+    // 80 MHz als Untergrenze lässt beiden genug Reserve.
+    const esp_pm_config_t pm = {
+        .max_freq_mhz = 240,
+        .min_freq_mhz = 80,
+        .light_sleep_enable = true,
+    };
+    ESP_ERROR_CHECK(esp_pm_configure(&pm));
+
     if (!board_pins_vollstaendig()) {
         // Nicht weiterlaufen und so tun als ob: Ohne Pins wäre jede folgende
         // Meldung eine Lüge. Der Fehler steht oben, mit Namen.
@@ -162,6 +228,7 @@ void app_main(void)
     }
 
     ESP_ERROR_CHECK(audio_init());
+    akku_init();           // darf scheitern: dann bleibt der Akkustand -1
     bedienung_init();
     netz_init();          // darf scheitern: dann bleibt alles auf der Karte
 

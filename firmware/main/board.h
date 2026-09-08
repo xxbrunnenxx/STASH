@@ -1,6 +1,9 @@
 // Board-Belegung. Alle Werte kommen aus Kconfig (idf.py menuconfig), keiner
 // steht hier fest verdrahtet: Im öffentlichen Datenblatt des Boards stehen
-// keine Pin-Nummern, und geratene Pins wären schlimmer als gar keine — der
+// keine Pin-Nummern (die Vorgaben in Kconfig.projbuild stammen stattdessen
+// aus Waveshares eigenem Referenzcode für dieses Board). Für eine
+// abweichende Revision oder einen eigenen Umbau bleibt menuconfig der Ort
+// zum Überschreiben — geratene Pins wären schlimmer als gar keine: der
 // Build liefe durch, das Gerät bliebe schwarz, und man suchte den Fehler in
 // der Software.
 #pragma once

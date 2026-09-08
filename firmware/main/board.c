@@ -14,12 +14,17 @@ bool board_pins_vollstaendig(void)
         {"E-Paper DC",   CONFIG_STASH_EPD_DC},
         {"E-Paper RST",  CONFIG_STASH_EPD_RST},
         {"E-Paper BUSY", CONFIG_STASH_EPD_BUSY},
-        {"SD SCK",       CONFIG_STASH_SD_SCK},
-        {"SD MOSI",      CONFIG_STASH_SD_MOSI},
-        {"SD MISO",      CONFIG_STASH_SD_MISO},
-        {"SD CS",        CONFIG_STASH_SD_CS},
+        {"SD D0",        CONFIG_STASH_SD_D0},
+        {"SD D1",        CONFIG_STASH_SD_D1},
+        {"SD D2",        CONFIG_STASH_SD_D2},
+        {"SD D3",        CONFIG_STASH_SD_D3},
+        {"SD CLK",       CONFIG_STASH_SD_CLK},
+        {"SD CMD",       CONFIG_STASH_SD_CMD},
         {"I2C SDA",      CONFIG_STASH_I2C_SDA},
         {"I2C SCL",      CONFIG_STASH_I2C_SCL},
+        // audio.c setzt mclk_from_mclk_pin=true fest — ohne diesen Pin bekommt
+        // der ES8311 keinen validen Referenztakt, still und ohne Fehlermeldung.
+        {"I2S MCLK",     CONFIG_STASH_I2S_MCLK},
         {"I2S BCLK",     CONFIG_STASH_I2S_BCLK},
         {"I2S WS",       CONFIG_STASH_I2S_WS},
         {"I2S DIN",      CONFIG_STASH_I2S_DIN},
@@ -36,8 +41,8 @@ bool board_pins_vollstaendig(void)
         }
     }
     if (fehlen) {
-        ESP_LOGE(TAG, "%d Pins nicht gesetzt. Nummern aus dem Waveshare-Schaltplan", fehlen);
-        ESP_LOGE(TAG, "in `idf.py menuconfig` unter „STASH Board\" eintragen.");
+        ESP_LOGE(TAG, "%d Pins nicht gesetzt. Vorgaben stehen in Kconfig.projbuild;", fehlen);
+        ESP_LOGE(TAG, "in `idf.py menuconfig` unter „STASH Board\" prüfen/eintragen.");
         return false;
     }
     return true;

@@ -8,10 +8,12 @@ das nichts weitergibt — und was nicht erreichbar ist, gibt auch nichts weiter.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import shutil
 import sys
 import tempfile
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -20,40 +22,93 @@ from fastapi.responses import JSONResponse
 
 from . import seiten
 from .aufraeumen import bereinigen, zaehle_fueller
+from .caldav_sync import Kalender
 from .einsortieren import aufgaben as aufgaben_finden
 from .einsortieren import einsortieren, uebernehmen
 from .einstellungen import Einstellungen, laden
 from .schlagworte import schlagworte
 from .transkript import Transkribierer
 from .vault import Vault
-from .zustand import Notiz, Zustand
+from .zustand import ANSICHTEN, Notiz, Zustand
 
 log = logging.getLogger("stash")
 
-app = FastAPI(title="STASH Brain", docs_url=None, redoc_url=None)
+# openapi_url=None zusätzlich zu docs_url/redoc_url: Sonst bleibt das
+# vollständige Schema unter /openapi.json erreichbar, obwohl die Absicht
+# offensichtlich war, die API-Struktur nicht öffentlich zu machen.
+app = FastAPI(title="STASH Brain", docs_url=None, redoc_url=None, openapi_url=None)
 
 E: Einstellungen
 VAULT: Vault
 Z: Zustand
 WHISPER: Transkribierer
+KALENDER: Kalender
 NUMMER = 0
 SD_BELEGT_MB = 0
+_KALENDER_GEHOLT_UM = 0.0
+KALENDER_INTERVALL_S = 900   # ein CalDAV-Roundtrip pro Panel-Poll wäre nur Latenz ohne Nutzen
 
 
 def aufsetzen(e: Einstellungen | None = None) -> None:
-    global E, VAULT, Z, WHISPER
+    global E, VAULT, Z, WHISPER, KALENDER
     E = e or laden()
     VAULT = Vault(E)
     Z = Zustand()
     WHISPER = Transkribierer(E)
-
-    # Was der Nachtlauf hinterlassen hat, ist die Seite für heute.
-    morgen = E.vault / ".stash" / f"morgen-{date.today().isoformat()}.md"
-    if morgen.exists():
-        Z.morgenseite = morgen.read_text(encoding="utf-8")
+    KALENDER = Kalender(E)
+    Z.kalender_verbunden = KALENDER.aktiv
+    _morgenseite_aktualisieren()
 
     log.info("Vault %s · %d Listen · Konfiguration aus %s",
              E.vault, len(VAULT.listen), E.herkunft)
+
+
+def _kalender_aktualisieren(erzwingen: bool = False) -> None:
+    """Termine der Woche holen — höchstens alle KALENDER_INTERVALL_S Sekunden.
+
+    Anders als die Morgenseite (eine lokale Datei) braucht das hier einen
+    echten Netzwerk-Roundtrip zu einem fremden Dienst. Das bei jedem
+    Panel-Fetch des Geräts zu tun würde die Antwortzeit von /v1/bild an einen
+    dritten Dienst koppeln, den STASH nicht kontrolliert — also gecached,
+    mit großzügigem Intervall.
+    """
+    global _KALENDER_GEHOLT_UM
+    if not KALENDER.aktiv:
+        return
+    jetzt = time.monotonic()
+    if not erzwingen and jetzt - _KALENDER_GEHOLT_UM < KALENDER_INTERVALL_S:
+        return
+    Z.termine = KALENDER.woche()
+    _KALENDER_GEHOLT_UM = jetzt
+
+
+def _morgenseite_aktualisieren() -> None:
+    """Verdichtete Seite und geklärte Fragen von der Platte lesen, nicht nur
+    einmal beim Start.
+
+    stash-brain ist ein langlaufender Dienst; stash-nachtlauf (der
+    dokumentierte Weg über den systemd-Timer) ist ein eigener, kurzlebiger
+    Prozess, der .stash/morgen-{datum}.md und .stash/geklaert-{datum}.json
+    schreibt und danach wieder endet. Ohne diesen erneuten Lesevorgang bei
+    jeder Anfrage würde der laufende Server nie erfahren, dass die Nacht
+    etwas hinterlassen hat — die Seite bliebe leer, bis der Dienst zufällig
+    neu startet. Zwei kleine Dateien zu lesen kostet auf einer NVMe nichts;
+    das bei jeder Anfrage zu tun ist billiger als das Risiko, die
+    Morgenseite zu verpassen.
+    """
+    heute = date.today().isoformat()
+    morgen = E.vault / ".stash" / f"morgen-{heute}.md"
+    Z.morgenseite = morgen.read_text(encoding="utf-8") if morgen.exists() else ""
+
+    geklaert_datei = E.vault / ".stash" / f"geklaert-{heute}.json"
+    if geklaert_datei.exists():
+        try:
+            paare = json.loads(geklaert_datei.read_text(encoding="utf-8"))
+            Z.geklaert = [tuple(p) for p in paare]
+        except (json.JSONDecodeError, OSError, ValueError):
+            Z.geklaert = []
+    else:
+        Z.geklaert = []
 
 
 # ── Die Pipeline ─────────────────────────────────────────────────────────────
@@ -101,6 +156,8 @@ async def notiz_annehmen(datei: UploadFile = File(...)):
 
     for a in aufg:
         Z.erinnerungen.append((a, False))
+        if KALENDER.aktiv:
+            KALENDER.aufgabe_anlegen(a)
 
     Z.notizen.append(Notiz(
         nr=NUMMER, wann=jetzt, dauer_s=dauer, roh=roh, rein=rein,
@@ -126,8 +183,16 @@ async def notiz_annehmen(datei: UploadFile = File(...)):
 # ── Anzeige ──────────────────────────────────────────────────────────────────
 
 def _blatt(ansicht: str | None):
-    if ansicht:
+    # Nur eine der acht bekannten Ansichten wird übernommen. Ohne diese Prüfung
+    # landet ein beliebiger Query-String direkt im geteilten Zustand und wird
+    # später ungefiltert in den Antwort-Header X-Stash-Ansicht gespiegelt —
+    # ein Wert mit \r\n dort bringt die HTTP-Schicht zum Absturz (per h11
+    # LocalProtocolError nachgewiesen, siehe Issue #8).
+    if ansicht and ansicht in ANSICHTEN:
         Z.ansicht = ansicht
+    _morgenseite_aktualisieren()
+    if Z.ansicht in ("heute", "kalender"):
+        _kalender_aktualisieren()
     eintraege, aufgaben = _detail_daten()
     return seiten.seite(Z, VAULT.listen, eintraege=eintraege, aufgaben=aufgaben,
                         sd_belegt_mb=SD_BELEGT_MB, offline_seit="")
@@ -157,7 +222,9 @@ async def bild(anfrage: Request, ansicht: str | None = None, format: str = "roh"
                sd_mb: int | None = None, ruhe: int | None = None):
     # Was nur das Gerät weiß, sagt das Gerät: Akkustand, wie viel noch auf der
     # Karte liegt, wie voll sie ist. Der Pi rät das nicht.
-    if akku is not None:
+    # -1 heißt: Der AXP2101 hat nicht geantwortet — dann bleibt der zuletzt
+    # bekannte Stand stehen, statt ihn durch eine erfundene 0 zu ersetzen.
+    if akku is not None and akku >= 0:
         Z.akku = max(0, min(100, akku))
     if wartend is not None:
         Z.wartend = max(0, wartend)
@@ -192,6 +259,7 @@ async def bild(anfrage: Request, ansicht: str | None = None, format: str = "roh"
 
 @app.get("/v1/zustand")
 async def zustand():
+    _morgenseite_aktualisieren()
     return {
         "ansicht": Z.ansicht,
         "akku": Z.akku,
@@ -224,9 +292,11 @@ async def nachtlauf_jetzt():
     from .nachtlauf import lauf
     bericht = lauf(E)
     VAULT.listen = Vault(E).listen
-    if bericht["verdichtet"]:
-        Z.morgenseite = bericht["verdichtet"]
-    Z.geklaert = bericht["geklaert"]
+    # lauf() hat verdichtet/geklaert bereits auf die Platte geschrieben —
+    # derselbe Weg, über den auch der systemd-Timer-Prozess dem Server seine
+    # Ergebnisse mitteilt (Issue #12). Ein Ladepfad für beide Fälle, damit
+    # nichts auseinanderlaufen kann.
+    _morgenseite_aktualisieren()
     return {k: v for k, v in bericht.items() if k != "verdichtet"} | {
         "verdichtet": bool(bericht["verdichtet"])}
 

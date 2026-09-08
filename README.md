@@ -15,10 +15,12 @@ funktionieren wie an guten. Was daraus folgt, steht unter
 
 *Ein Stash ist der Vorrat, den man sich weglegt.*
 
-**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Was noch fehlt, ist
-Hardware unter dem Code: Die Pin-Nummern des Boards stehen im öffentlichen Datenblatt nicht und
-müssen aus dem Schaltplan eingetragen werden — siehe [firmware/README.md](firmware/README.md).
-Der Brain-Teil läuft ohne Gerät, [brain/README.md](brain/README.md) zeigt wie.
+**Status:** Showcase steht, Firmware und Brain liegen als lauffähiger Code vor. Die Pin-Nummern des
+Boards stehen im öffentlichen Datenblatt zwar nicht, sind aber über Waveshares eigenen
+Referenzcode für dieses Board bestätigt und als Vorgaben in der Firmware hinterlegt — was noch
+fehlt, ist echte Hardware unter dem Code, um das zu verifizieren: siehe
+[firmware/README.md](firmware/README.md). Der Brain-Teil läuft ohne Gerät,
+[brain/README.md](brain/README.md) zeigt wie.
 
 ---
 
@@ -108,7 +110,7 @@ Tatsache auftauchen:
 | Speicher | TF-Karten-Slot (FAT32) → **hier liegt die Warteschlange** | bestätigt |
 | Uhr | PCF85063 RTC, mit eigenem Stützakku-Anschluss | bestätigt |
 | Sensoren | SHTC3 (Temperatur/Luftfeuchte), QMI8658 6-Achsen-IMU | bestätigt |
-| Strom | TG28 Power-Management, 3,7 V Li-Akku über MX1.25, USB-C | bestätigt |
+| Strom | AXP2101 Power-Management (I2C 0x34, eigener Ladungszähler), 3,7 V Li-Akku über MX1.25, USB-C | bestätigt — korrigiert, siehe unten |
 | Bedienung | Drehknopf mit drei Richtungen, seitlich PWR und BOOT | bestätigt |
 | Funk | 2,4 GHz WLAN (b/g/n), BLE 5 (LE) | bestätigt |
 
@@ -116,6 +118,13 @@ Tatsache auftauchen:
 liegt auf der seitlichen BOOT-Taste und ist dadurch aus jeder Ansicht erreichbar, ohne vorher
 irgendwohin navigieren zu müssen — genau das verlangt „Knopf drücken, drauflosreden, fertig".
 PWR bleibt der Stromversorgung vorbehalten.
+
+**Korrektur „TG28" → AXP2101.** Das öffentliche Datenblatt nennt den Power-Management-Chip nicht
+beim Namen; „TG28" stand hier ohne Beleg. Waveshares eigenes Referenzprojekt für dieses Board
+(github.com/waveshareteam/ESP32-S3-ePaper-3.97) benutzt durchgängig einen AXP2101 auf I2C-Adresse
+0x34 — das ist jetzt die bestätigte Angabe. Der Chip hat einen eigenen Ladungszähler und legt den
+Akkustand direkt als Prozentzahl in ein Register, ohne dass eine Kapazitätsangabe nötig wäre (siehe
+Issue #14).
 
 **Brain:** Raspberry Pi 5, 16 GB RAM, 1 TB NVMe-SSD, aktive Kühlung.
 
@@ -146,7 +155,7 @@ Der Showcase ist **nicht** die Firmware und **nicht** das Pi-Setup.
 ```
 stash/
 ├─ README.md              dieses Dokument (Spezifikation + Bauauftrag)
-├─ LICENSE                fehlt noch, siehe Lizenz
+├─ LICENSE                MIT
 ├─ showcase/
 │  └─ stash-showcase.html bedienbare Simulation, ein File, kein Build
 ├─ firmware/              ESP-IDF-Projekt für den ESP32-S3
@@ -176,7 +185,7 @@ bewirkt — Anleitungen, die man nur abschreibt, helfen beim nächsten Fehler ni
 
 | Teil | Anleitung | Kurz |
 |---|---|---|
-| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pins aus dem Schaltplan in `idf.py menuconfig`, dann `idf.py flash monitor` |
+| Gerät | [firmware/README.md](firmware/README.md) | ESP-IDF v5.2, Pin-Vorgaben in `idf.py menuconfig` prüfen, dann `idf.py flash monitor` |
 | Brain | [brain/README.md](brain/README.md) | `python3 -m venv .venv && pip install -e .`, Konfiguration nach `~/.config/stash/stash.toml`, `systemctl enable --now stash-brain` |
 
 Der Brain-Teil braucht das Gerät nicht. Eine beliebige Sprachaufnahme reicht, um den ganzen Weg zu
@@ -275,7 +284,10 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 7. **Kalender** — Wochenagenda aus dem Apple-Kalender, heute invertiert (schwarzer Balken,
    Papierschrift) statt farbig markiert.
 8. **Warteschlange** — offline seit X, Aufnahmen auf der SD-Karte mit Länge und Wartestatus,
-   nächster Versuch in N Sekunden, belegter SD-Speicher und Restreichweite in Stunden.
+   nächster Versuch in N Sekunden, belegter SD-Speicher und Restreichweite in Stunden. Das ist
+   das Bild, das der Pi liefert, **solange das Gerät ihn noch erreichen kann** — im Showcase also
+   immer. Ist der Pi wirklich nicht erreichbar, zeigt das echte Gerät stattdessen eine eigene,
+   gröbere Anzeige: siehe „Was ein echter Ausfall wirklich zeigt" weiter unten.
 
 ## Die Pipeline
 
@@ -332,6 +344,23 @@ zeigt einen anderen Fall:
 Zusätzlich ein Schalter **„WLAN aus"**: dann wandert die Aufnahme in die Warteschlange statt
 durchzulaufen, und die Warteschlangen-Ansicht füllt sich. Beim Wiedereinschalten läuft der Stau ab.
 
+**Was ein echter Ausfall wirklich zeigt.** Der Showcase simuliert „WLAN aus" mit einer live
+mitzählenden JavaScript-Anzeige (Sekunden, Nächster-Versuch-Countdown, volle Warteschlangen-Liste)
+— das geht dort, weil er im Browser lokal zeichnet. Das echte Gerät zeichnet sonst nie lokal, jede
+Ansicht kommt fertig vom Pi — und genau die Ansicht „der Pi ist nicht erreichbar" kann der Pi in
+dem Moment nicht liefern, in dem sie stimmen würde.
+
+Deshalb zeichnet die Firmware für diesen einen Fall doch selbst, mit derselben Technik wie beim
+Aufnahme-Overlay (eigener kleiner Ziffernsatz, kein Layout vom Pi nötig): Bleibt der Pi länger als
+ein Netzintervall (Vorgabe 30 s) nicht erreichbar, zeigt das Panel groß und mittig die Minuten, die
+er schon nicht erreichbar ist, mit einem gestrichelten Balken oben als Zustandsmarkierung. Das ist
+bewusst gröber als der Showcase: Minuten statt Sekunden, aktualisiert höchstens alle 30 Sekunden
+statt jede Sekunde — ein Live-Countdown auf die Sekunde bräuchte einen Teilrefresh pro Sekunde, und
+das widerspräche der ganzen E-Ink-Philosophie hier (jeder Refresh kostet, das Bild soll stehen
+bleiben). Die volle Warteschlangen-Ansicht mit Liste, SD-Belegung und Restreichweite bleibt dem Pi
+vorbehalten und erscheint erst wieder, sobald er zurück ist — genau wie im Showcase, nur eben nicht
+während des Ausfalls selbst.
+
 ## E-Ink-Echtheit
 
 Die Details, an denen es hängt:
@@ -351,7 +380,10 @@ Die Details, an denen es hängt:
   ohne das Wort davor hielte man sie für eine laufende Uhr. Die Seite wird ruhend voller gesetzt
   als bedient — was nur angeschaut und nicht durchgeblättert wird, hat nur das, was draufsteht.
 - Auswahl/Markierung immer als invertierter Block, nie als Farbfläche.
-- Akku in Prozent **und** geschätzten Tagen Restlaufzeit.
+- Akku in Prozent. Die geschätzten Tage Restlaufzeit stehen noch aus (siehe Fahrplan, Punkt 6) —
+  eine seriöse Schätzung braucht entweder eine bestätigte Akkukapazität, die in der Stückliste
+  nicht steht, oder eine echte Laufzeitmessung an der Hardware. Beides zu erfinden wäre genau die
+  Art Annahme, die die Stückliste bewusst ausschließt.
 
 ## Demo-Inhalte
 
@@ -383,17 +415,25 @@ Tagebucheinträge bleiben sachlich und beiläufig: was gemacht wurde, wo man war
 
 ## Abnahme
 
-- [ ] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
-- [ ] alle acht Ansichten sind erreichbar und gefüllt
-- [ ] „Sprachnotiz aufnehmen" läuft mindestens fünfmal mit unterschiedlichem Ergebnis durch
-- [ ] dabei wird einmal sichtbar eine neue Liste angelegt und einmal ins Tagebuch angehängt
-- [ ] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
-- [ ] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
-- [ ] „Gerät aus" lässt den Inhalt stehen
-- [ ] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 6)
-- [ ] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
-- [ ] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
-- [ ] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
+Geprüft gegen `showcase/stash-showcase.html`, Stand Commit `8e55b95` (per Playwright, headless
+Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur gelesen.
+
+- [x] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
+- [x] alle acht Ansichten sind erreichbar und gefüllt
+- [x] „Sprachnotiz aufnehmen" läuft mindestens fünfmal mit unterschiedlichem Ergebnis durch
+- [x] dabei wird einmal sichtbar eine neue Liste angelegt und einmal ins Tagebuch angehängt
+- [x] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
+- [x] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
+- [x] „Gerät aus" lässt den Inhalt stehen
+- [x] eine Suche nach Farbwerten im File findet nur unbunte Werte (Kanalspreizung ≤ 12) —
+      gilt für die ganze Werkbank; auf dem Panel selbst kommen ohnehin nur `--paper`/`--ink`
+      vor (Spreizung 0). Die Werkbank-Palette selbst reicht bis 11 (`--mute` liegt bei 10)
+- [x] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
+- [x] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
+- [x] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
+
+Diese Liste gilt für den Showcase. Firmware und Brain haben ihre eigenen offenen Punkte —
+siehe die [GitHub Issues](https://github.com/xxbrunnenxx/STASH/issues).
 
 **Hinweis an den Coding-Agent:** Wenn du fertig bist, öffne das File selbst und klick es durch.
 Dann in zwei, drei Sätzen sagen, was konkret drinsteckt — nicht „fertig" schreiben, sondern was
@@ -403,16 +443,21 @@ gebaut wurde.
 
 1. **Showcase** — bedienbare Simulation, um das Konzept vor dem Löten zu prüfen ✓
 2. **Firmware** — Aufnahme über ES8311, Puffer auf SD, Übertragung, Panel-Ansteuerung ✓ geschrieben,
-   ungetestet auf Hardware: Pinbelegung und die Kommandofolgen des E-Paper-Controllers fehlen noch
+   Pinbelegung und Akkuauslesung (AXP2101) über Waveshares Referenzcode bestätigt, aber ungetestet
+   auf echter Hardware; die Kommandofolgen des E-Paper-Controllers (`epd_sequenz.h`) sind als
+   Referenz dokumentiert, aber noch nicht eingetragen — zwei offene Fragen (Moduswechsel
+   Vollbild/Schnell, Drehrichtung) lassen sich nur am zusammengebauten Gerät klären
 3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber,
    Renderer, Nachtlauf ✓ läuft ← *hier*
-4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen steht, Schreiben ist
-   angelegt und ungeprüft
+4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen und Schreiben sind
+   jetzt verkabelt (`server.py` ruft `caldav_sync.Kalender` tatsächlich auf, nicht nur programmiert
+   und ungenutzt daneben), Fehlerfälle und der "nicht konfiguriert"-Zustand gegen einen echten
+   (unerreichbaren) Server geprüft — gegen einen echten Apple-Account weiterhin ungeprüft
 5. **Gehäuse** — zweiteilig gedruckt, magnetische Frontplatte, SD ohne Demontage erreichbar
 6. **Feinschliff** — Akkulaufzeit messen, Refresh-Strategie und Weckintervalle optimieren
 
 ## Lizenz
 
-*Noch festzulegen.* Ohne `LICENSE`-Datei gilt auf GitHub automatisch „alle Rechte vorbehalten" —
-niemand darf den Code benutzen. MIT ist für so ein Projekt der übliche Weg, wenn andere es
-nachbauen können sollen.
+**MIT.** Jeder darf den Code nutzen, verändern und weitergeben, auch kommerziell — der einzige
+Anspruch ist, den Copyright-Hinweis in `LICENSE` stehen zu lassen. Das passt zu einem Projekt,
+das andere nachbauen können sollen.

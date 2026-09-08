@@ -8,8 +8,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 
-#include "driver/sdspi_host.h"
-#include "driver/spi_common.h"
+#include "driver/sdmmc_host.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
@@ -25,26 +24,21 @@ esp_err_t sd_montieren(void)
         .allocation_unit_size = 16 * 1024, // drauf sein
     };
 
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    spi_bus_config_t bus = {
-        .mosi_io_num = CONFIG_STASH_SD_MOSI,
-        .miso_io_num = CONFIG_STASH_SD_MISO,
-        .sclk_io_num = CONFIG_STASH_SD_SCK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 4096,
-    };
-    esp_err_t err = spi_bus_initialize(host.slot, &bus, SDSPI_DEFAULT_DMA);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {   // Bus teilt sich ggf. mit dem Panel
-        ESP_LOGE(TAG, "SPI-Bus: %s", esp_err_to_name(err));
-        return err;
-    }
+    // Waveshares Referenzcode nutzt SDMMC im 4-Bit-Modus, keine SPI — die
+    // ESP32-S3-SDMMC-Peripherie hängt über die GPIO-Matrix an beliebigen
+    // Pins, nicht an feste IOMUX-Leitungen wie beim klassischen ESP32.
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    sdmmc_slot_config_t slot = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot.width = 4;
+    slot.clk = CONFIG_STASH_SD_CLK;
+    slot.cmd = CONFIG_STASH_SD_CMD;
+    slot.d0  = CONFIG_STASH_SD_D0;
+    slot.d1  = CONFIG_STASH_SD_D1;
+    slot.d2  = CONFIG_STASH_SD_D2;
+    slot.d3  = CONFIG_STASH_SD_D3;
+    slot.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
-    sdspi_device_config_t slot = SDSPI_DEVICE_CONFIG_DEFAULT();
-    slot.gpio_cs = CONFIG_STASH_SD_CS;
-    slot.host_id = host.slot;
-
-    err = esp_vfs_fat_sdspi_mount(SD_WURZEL, &host, &slot, &opt, &karte);
+    esp_err_t err = esp_vfs_fat_sdmmc_mount(SD_WURZEL, &host, &slot, &opt, &karte);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Karte nicht lesbar (%s). FAT32 formatiert?", esp_err_to_name(err));
         return err;

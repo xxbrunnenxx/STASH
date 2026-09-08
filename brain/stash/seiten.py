@@ -420,6 +420,19 @@ def kalender(z: Zustand) -> Blatt:
     heute_ = date.today()
     b.text("Woche", "d2")
     b.y += 26
+
+    if not z.kalender_verbunden:
+        # Eine leere Woche und ein Hinweis sehen auf dem Papier identisch aus,
+        # wenn man beide zeigt, ohne zu sagen welcher Fall es ist — deshalb
+        # ehrlich sagen, dass hier keine Quelle angeschlossen ist, statt eine
+        # Woche ohne Termine zu behaupten.
+        b.regel(stark=True)
+        b.absatz("Noch nicht mit dem Apple-Kalender verbunden.", "p")
+        b.y += 8
+        b.absatz("Die Verbindung wird in der Konfiguration des Brain "
+                 "eingerichtet, nicht auf dem Gerät.", "m")
+        return _abschluss(b, z)
+
     b.text(f"KW {heute_.isocalendar().week} · aus dem Apple-Kalender", "m")
     b.y += 16
     b.regel(stark=True)

@@ -155,9 +155,14 @@ benutzer = "deine@apple-id.de"
 passwort = "abcd-efgh-ijkl-mnop"     # appleid.apple.com → app-spezifisches Passwort
 ```
 
-Gelesen wird die laufende Woche für die Kalenderansicht. Geschrieben werden erkannte Aufgaben als
-Erinnerung. Der Schreibweg ist angelegt, aber nicht gegen einen echten Apple-Account geprüft —
-wenn er klemmt, steht der Grund in `journalctl -u stash-brain`, und der Rest läuft weiter.
+Gelesen wird die laufende Woche für die Kalenderansicht, höchstens alle 15 Minuten neu (ein
+CalDAV-Roundtrip bei jedem Panel-Fetch des Geräts würde dessen Antwortzeit an einen fremden Dienst
+koppeln). Geschrieben werden erkannte Aufgaben als Erinnerung, direkt nach dem Einsortieren einer
+Notiz. Beide Wege sind gegen Netzwerkfehler und einen nicht konfigurierten Zustand geprüft — nicht
+gegen einen echten Apple-Account, dafür fehlen hier die Zugangsdaten. Steht `caldav.url` leer,
+zeigt die Kalenderansicht ehrlich „Noch nicht mit dem Apple-Kalender verbunden" statt einer leeren
+Woche. Klemmt eine echte Verbindung, steht der Grund in `journalctl -u stash-brain`, und der Rest
+läuft weiter.
 
 ---
 
@@ -250,17 +255,20 @@ Inhalt eine WAV, 16 kHz mono 16 Bit. Der Dienst antwortet erst, wenn die Aufnahm
 und das Gerät löscht sie erst nach einer 200er-Antwort von der Karte. Ginge es andersherum, wäre
 eine Notiz weg, weil das WLAN im falschen Moment gewackelt hat.
 
-**`GET /v1/bild`** kennt vier Parameter:
+**`GET /v1/bild`** kennt sechs Parameter:
 
 | Parameter | Wer setzt ihn | Wofür |
 |---|---|---|
 | `ansicht` | Werkbank / Neugier | Eine bestimmte der acht Ansichten rendern, statt der aktuellen. |
 | `format=png` | Mensch | PNG statt Bitstrom — dasselbe Bild, nur ansehbar. |
+| `akku` | Gerät | Akkustand in Prozent. |
 | `wartend` | Gerät | Wie viele Aufnahmen noch auf der Karte liegen. |
 | `sd_mb` | Gerät | Wie voll die Karte ist. |
 | `ruhe=1` | Gerät | Das Gerät wird gerade nicht bedient — die Seite wird als Sperrseite gesetzt. |
 
-`wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
+`akku`, `wartend` und `sd_mb` kommen vom Gerät, weil nur das Gerät sie kennt. Der Pi rät das nicht.
+`akku` ist -1, wenn der AXP2101 auf dem Gerät nicht antwortet — dann bleibt der zuletzt bekannte
+Stand stehen, statt ihn durch eine erfundene 0 zu ersetzen (siehe #14).
 
 **Der ETag ist der Kern des Ganzen.** Jede Antwort trägt einen `ETag` über den Bildinhalt. Das
 Gerät schickt ihn beim nächsten Mal als `If-None-Match` mit und bekommt `304 Not Modified`, wenn
