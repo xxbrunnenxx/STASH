@@ -122,7 +122,18 @@ static void netz_task(void *arg)
 
         // WLAN weg oder Pi nicht erreichbar: ab hier zählt die Offline-Zeit.
         if (offline_seit_us == 0) offline_seit_us = esp_timer_get_time();
-        if (soll_ruhen) continue;   // Sperrseite hat Vorrang, nichts überschreiben
+
+        if (soll_ruhen) {
+            // Die Sperrseite hat Vorrang vor dem Offline-Overlay — aber sie
+            // muss trotzdem einmal tatsächlich einsetzen. Ohne diesen Zweig
+            // bliebe der Controller ohne Grund wach, nur weil gerade kein Pi
+            // da ist: Er legt sich mit dem, was gerade im Puffer steht
+            // (letztes Pi-Bild oder Overlay), schlafen — ohne den frisch
+            // vom Pi gerenderten „Stand HH:MM"-Stempel, den es hier nicht
+            // geben kann.
+            if (!ruht) { panel_ruhen(NULL); ruht = true; }
+            continue;
+        }
 
         const int64_t jetzt = esp_timer_get_time();
         const int sekunden_offline = (int)((jetzt - offline_seit_us) / 1000000);
