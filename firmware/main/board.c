@@ -20,6 +20,9 @@ bool board_pins_vollstaendig(void)
         {"SD CS",        CONFIG_STASH_SD_CS},
         {"I2C SDA",      CONFIG_STASH_I2C_SDA},
         {"I2C SCL",      CONFIG_STASH_I2C_SCL},
+        // audio.c setzt mclk_from_mclk_pin=true fest — ohne diesen Pin bekommt
+        // der ES8311 keinen validen Referenztakt, still und ohne Fehlermeldung.
+        {"I2S MCLK",     CONFIG_STASH_I2S_MCLK},
         {"I2S BCLK",     CONFIG_STASH_I2S_BCLK},
         {"I2S WS",       CONFIG_STASH_I2S_WS},
         {"I2S DIN",      CONFIG_STASH_I2S_DIN},
