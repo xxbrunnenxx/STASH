@@ -18,6 +18,7 @@ funktioniert an jedem Abend, an dem der Modellserver nicht läuft.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import sys
@@ -168,9 +169,17 @@ def lauf(e: Einstellungen | None = None) -> dict:
     vault.listen_sichern()
     bericht["listen_nachher"] = len(vault.listen)
 
+    # Beides auf die Platte, nicht nur im Rückgabewert dieser Funktion: Der
+    # dokumentierte Weg (stash-nachtlauf.timer) startet lauf() in einem
+    # eigenen, kurzlebigen Prozess — getrennt vom langlaufenden stash-brain,
+    # das dem Gerät die Seiten schickt. Was hier nicht auf die Platte kommt,
+    # sieht der laufende Dienst nie (Issue #12).
     if bericht["verdichtet"]:
         p = e.vault / ".stash" / f"morgen-{heute.isoformat()}.md"
         p.write_text(bericht["verdichtet"], encoding="utf-8")
+    if bericht["geklaert"]:
+        p = e.vault / ".stash" / f"geklaert-{heute.isoformat()}.json"
+        p.write_text(json.dumps(bericht["geklaert"], ensure_ascii=False), encoding="utf-8")
 
     log.info("Nachtlauf · %d → %d Listen · %d zusammengelegt · %d umbenannt · "
              "%d verblasst · %d Audiodateien gelöscht",
