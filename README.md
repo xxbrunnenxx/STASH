@@ -275,7 +275,10 @@ Symbole als winzige Inline-SVGs, nicht Unicode) und unten eine Leiste mit der Dr
 7. **Kalender** — Wochenagenda aus dem Apple-Kalender, heute invertiert (schwarzer Balken,
    Papierschrift) statt farbig markiert.
 8. **Warteschlange** — offline seit X, Aufnahmen auf der SD-Karte mit Länge und Wartestatus,
-   nächster Versuch in N Sekunden, belegter SD-Speicher und Restreichweite in Stunden.
+   nächster Versuch in N Sekunden, belegter SD-Speicher und Restreichweite in Stunden. Das ist
+   das Bild, das der Pi liefert, **solange das Gerät ihn noch erreichen kann** — im Showcase also
+   immer. Ein echter Ausfall (WLAN weg oder der Pi nicht erreichbar) sieht auf dem echten Gerät
+   anders aus: siehe „Was ein echter Ausfall wirklich zeigt" weiter unten.
 
 ## Die Pipeline
 
@@ -331,6 +334,18 @@ zeigt einen anderen Fall:
 
 Zusätzlich ein Schalter **„WLAN aus"**: dann wandert die Aufnahme in die Warteschlange statt
 durchzulaufen, und die Warteschlangen-Ansicht füllt sich. Beim Wiedereinschalten läuft der Stau ab.
+
+**Was ein echter Ausfall wirklich zeigt.** Der Showcase kann „WLAN aus" simulieren, weil er in
+JavaScript lokal zeichnet. Das echte Gerät zeichnet nie lokal — jede Ansicht kommt vom Pi. Ist der
+Pi also wirklich nicht erreichbar (WLAN weg oder der Dienst selbst nicht da), kann das Gerät die
+Warteschlangen-Ansicht mit ihrem Live-Countdown gar nicht erst anfordern: `netz_task()` in der
+Firmware versucht es, bekommt keine Antwort, und lässt das Panel unverändert stehen. Kein
+„nächster Versuch in N Sekunden", keine live mitzählende Offline-Dauer — nur das zuletzt erfolgreich
+geholte Bild, eingefroren, bis die Verbindung zurückkommt. Das passt zur E-Ink-Philosophie („das
+Bild bleibt stehen"), ist aber etwas anderes, als die Ansicht oben beschreibt. Diese Seite live zu
+sehen heißt: entweder im Showcase, oder von einem Werkbank-Rechner aus manuell abgerufen
+(`curl .../v1/bild?ansicht=warteschlange`), während der Pi noch erreichbar ist — nie auf dem
+Gerät selbst während eines echten Ausfalls.
 
 ## E-Ink-Echtheit
 
