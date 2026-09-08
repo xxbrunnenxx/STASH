@@ -29,6 +29,7 @@ static char        pfad[64];
 static uint32_t    datenbytes;
 static int64_t     start_us;
 static volatile bool laeuft;
+static volatile bool obergrenze_erreicht;  // schreiber_task hat sich selbst beendet
 static volatile float pegel;
 static TaskHandle_t schreiber;
 
@@ -75,6 +76,7 @@ static void schreiber_task(void *arg)
         if (datenbytes > (uint32_t)AUDIO_MAX_S * AUDIO_RATE * 2) {
             ESP_LOGW(TAG, "Obergrenze %d s erreicht · Aufnahme beendet", AUDIO_MAX_S);
             laeuft = false;
+            obergrenze_erreicht = true;
         }
     }
     free(puffer);
@@ -158,8 +160,16 @@ esp_err_t audio_start(void)
 
 esp_err_t audio_stop(char *aus, size_t len, float *sekunden)
 {
-    if (!laeuft) return ESP_ERR_INVALID_STATE;
+    // obergrenze_erreicht: schreiber_task hat laeuft schon selbst auf false
+    // gesetzt (AUDIO_MAX_S erreicht), bevor hier überhaupt gestoppt wurde.
+    // Ohne diesen zweiten Fall hätte der Aufrufer nie erfahren, dass die
+    // Aufnahme zu Ende ist, und die WAV-Datei wäre nie sauber geschlossen
+    // worden — bei genau der langen, abschweifenden Aufnahme, für die dieses
+    // Gerät gebaut ist, wäre am Ende eine kaputte Datei mit Nullkopf übrig
+    // geblieben, still und ohne jede Meldung.
+    if (!laeuft && !obergrenze_erreicht) return ESP_ERR_INVALID_STATE;
     laeuft = false;
+    obergrenze_erreicht = false;
     while (schreiber) vTaskDelay(pdMS_TO_TICKS(10));
     i2s_channel_disable(rx);
 
