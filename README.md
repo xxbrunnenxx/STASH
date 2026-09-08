@@ -447,7 +447,8 @@ Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur
 
 - [x] `showcase/stash-showcase.html` öffnet sich per Doppelklick, keine Konsolenfehler
 - [x] alle acht Ansichten sind erreichbar und gefüllt
-- [x] „Sprachnotiz aufnehmen" läuft mindestens fünfmal mit unterschiedlichem Ergebnis durch
+- [x] „Sprachnotiz aufnehmen" läuft alle sechs Demo-Aufnahmen durch, sechs unterschiedliche
+      Ergebnisse, keine Dopplung durch die Rotation
 - [x] dabei wird einmal sichtbar eine neue Liste angelegt und einmal ins Tagebuch angehängt
 - [x] „WLAN aus" füllt die Warteschlange, „WLAN an" arbeitet sie ab
 - [x] Voll- und Partial-Refresh sehen unterschiedlich aus, der Geisterbild-Zähler zählt
@@ -458,13 +459,13 @@ Chromium). Ein `[x]` heißt: automatisiert nachgefahren und bestanden, nicht nur
 - [x] das Panel ist bei jeder Fensterbreite 480 × 800, nur skaliert
 - [x] nirgends eine Mahnung, eine Serie, eine Quote oder eine Stimmungsabfrage
 - [x] Notiz und Listen-Detail sind allein mit Drehknopf und BOOT-Taste erreichbar
-
-Noch nicht nachgefahren — kommt mit der sechsten Demo-Aufnahme in den nächsten Playwright-Lauf:
-
-- [ ] die sechste Aufnahme (conf 0.58) geht nicht verloren und erzeugt keine Fehlermeldung
-- [ ] die Aufnahme startet ohne messbare Verzögerung, auch bei „WLAN aus"
-- [ ] bei „WLAN aus" erscheint keine Warnung, kein Dialog, keine Nachfrage
-- [ ] Statusleiste und Drehknopf-Leiste sitzen in allen acht Ansichten an derselben Stelle
+- [x] die sechste Aufnahme (conf 0.58, „Bohrgeräusch") geht nicht verloren und erzeugt keine
+      Fehlermeldung — erscheint im Eingang, `konf` korrekt bei 0.58
+- [x] alle sechs Aufnahmen starten ohne messbare Verzögerung (<50 ms), auch bei „WLAN aus"
+- [x] bei „WLAN aus" erscheint keine Warnung, kein Dialog, keine Nachfrage (`page.on('dialog')`
+      blieb während der ganzen Sitzung leer)
+- [x] Statusleiste und Drehknopf-Leiste sitzen in allen acht Ansichten an exakt derselben Stelle
+      (Position/Größe pixelgenau verglichen, nicht nur optisch)
 
 Diese Liste gilt für den Showcase. Firmware und Brain haben ihre eigenen offenen Punkte —
 siehe die [GitHub Issues](https://github.com/xxbrunnenxx/STASH/issues).
