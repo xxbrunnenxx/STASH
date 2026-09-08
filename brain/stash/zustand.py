@@ -51,6 +51,11 @@ class Zustand:
     geklaert: list[tuple[str, str]] = field(default_factory=list)
     # Ruhe: das Gerät wird gerade nicht bedient und zeigt die Sperrseite.
     ruhe: bool = False
+    # Ob caldav.url in der Konfiguration gesetzt ist — nicht, ob der letzte
+    # Abruf geklappt hat. Die Kalenderansicht zeigt bei False einen ehrlichen
+    # Hinweis statt einer leeren Woche, die nach "verbunden, aber nichts los"
+    # aussähe.
+    kalender_verbunden: bool = False
 
     def blaettern(self, richtung: int) -> None:
         # In der Tiefe (Notiz, Listen-Detail) blättert der Knopf nicht weiter,

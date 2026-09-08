@@ -30,7 +30,13 @@ class Kalender:
         import caldav
         self._client = caldav.DAVClient(url=self.e.caldav_url,
                                         username=self.e.caldav_benutzer,
-                                        password=self.e.caldav_passwort)
+                                        password=self.e.caldav_passwort,
+                                        # aufgabe_anlegen() läuft im Antwortpfad von
+                                        # POST /v1/notiz — ein zäher Apple-Server soll
+                                        # nicht die Aufnahme-Bestätigung ans Gerät
+                                        # verzögern, die über die 200er-Antwort das
+                                        # Löschen von der SD-Karte auslöst.
+                                        timeout=8)
         return self._client
 
     def woche(self) -> dict[int, list[tuple[str, str]]]:

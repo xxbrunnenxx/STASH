@@ -414,8 +414,10 @@ gebaut wurde.
    ungetestet auf Hardware: Pinbelegung und die Kommandofolgen des E-Paper-Controllers fehlen noch
 3. **Brain** — faster-whisper, Aufräumen, Schlagwortextraktion, Einsortieren, Vault-Schreiber,
    Renderer, Nachtlauf ✓ läuft ← *hier*
-4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen steht, Schreiben ist
-   angelegt und ungeprüft
+4. **CalDAV** — Apple Kalender und Erinnerungen in beide Richtungen · Lesen und Schreiben sind
+   jetzt verkabelt (`server.py` ruft `caldav_sync.Kalender` tatsächlich auf, nicht nur programmiert
+   und ungenutzt daneben), Fehlerfälle und der "nicht konfiguriert"-Zustand gegen einen echten
+   (unerreichbaren) Server geprüft — gegen einen echten Apple-Account weiterhin ungeprüft
 5. **Gehäuse** — zweiteilig gedruckt, magnetische Frontplatte, SD ohne Demontage erreichbar
 6. **Feinschliff** — Akkulaufzeit messen, Refresh-Strategie und Weckintervalle optimieren
 

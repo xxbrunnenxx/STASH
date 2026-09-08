@@ -155,9 +155,14 @@ benutzer = "deine@apple-id.de"
 passwort = "abcd-efgh-ijkl-mnop"     # appleid.apple.com → app-spezifisches Passwort
 ```
 
-Gelesen wird die laufende Woche für die Kalenderansicht. Geschrieben werden erkannte Aufgaben als
-Erinnerung. Der Schreibweg ist angelegt, aber nicht gegen einen echten Apple-Account geprüft —
-wenn er klemmt, steht der Grund in `journalctl -u stash-brain`, und der Rest läuft weiter.
+Gelesen wird die laufende Woche für die Kalenderansicht, höchstens alle 15 Minuten neu (ein
+CalDAV-Roundtrip bei jedem Panel-Fetch des Geräts würde dessen Antwortzeit an einen fremden Dienst
+koppeln). Geschrieben werden erkannte Aufgaben als Erinnerung, direkt nach dem Einsortieren einer
+Notiz. Beide Wege sind gegen Netzwerkfehler und einen nicht konfigurierten Zustand geprüft — nicht
+gegen einen echten Apple-Account, dafür fehlen hier die Zugangsdaten. Steht `caldav.url` leer,
+zeigt die Kalenderansicht ehrlich „Noch nicht mit dem Apple-Kalender verbunden" statt einer leeren
+Woche. Klemmt eine echte Verbindung, steht der Grund in `journalctl -u stash-brain`, und der Rest
+läuft weiter.
 
 ---
 

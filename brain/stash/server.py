@@ -13,6 +13,7 @@ import logging
 import shutil
 import sys
 import tempfile
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from fastapi.responses import JSONResponse
 
 from . import seiten
 from .aufraeumen import bereinigen, zaehle_fueller
+from .caldav_sync import Kalender
 from .einsortieren import aufgaben as aufgaben_finden
 from .einsortieren import einsortieren, uebernehmen
 from .einstellungen import Einstellungen, laden
@@ -40,20 +42,44 @@ E: Einstellungen
 VAULT: Vault
 Z: Zustand
 WHISPER: Transkribierer
+KALENDER: Kalender
 NUMMER = 0
 SD_BELEGT_MB = 0
+_KALENDER_GEHOLT_UM = 0.0
+KALENDER_INTERVALL_S = 900   # ein CalDAV-Roundtrip pro Panel-Poll wäre nur Latenz ohne Nutzen
 
 
 def aufsetzen(e: Einstellungen | None = None) -> None:
-    global E, VAULT, Z, WHISPER
+    global E, VAULT, Z, WHISPER, KALENDER
     E = e or laden()
     VAULT = Vault(E)
     Z = Zustand()
     WHISPER = Transkribierer(E)
+    KALENDER = Kalender(E)
+    Z.kalender_verbunden = KALENDER.aktiv
     _morgenseite_aktualisieren()
 
     log.info("Vault %s · %d Listen · Konfiguration aus %s",
              E.vault, len(VAULT.listen), E.herkunft)
+
+
+def _kalender_aktualisieren(erzwingen: bool = False) -> None:
+    """Termine der Woche holen — höchstens alle KALENDER_INTERVALL_S Sekunden.
+
+    Anders als die Morgenseite (eine lokale Datei) braucht das hier einen
+    echten Netzwerk-Roundtrip zu einem fremden Dienst. Das bei jedem
+    Panel-Fetch des Geräts zu tun würde die Antwortzeit von /v1/bild an einen
+    dritten Dienst koppeln, den STASH nicht kontrolliert — also gecached,
+    mit großzügigem Intervall.
+    """
+    global _KALENDER_GEHOLT_UM
+    if not KALENDER.aktiv:
+        return
+    jetzt = time.monotonic()
+    if not erzwingen and jetzt - _KALENDER_GEHOLT_UM < KALENDER_INTERVALL_S:
+        return
+    Z.termine = KALENDER.woche()
+    _KALENDER_GEHOLT_UM = jetzt
 
 
 def _morgenseite_aktualisieren() -> None:
@@ -130,6 +156,8 @@ async def notiz_annehmen(datei: UploadFile = File(...)):
 
     for a in aufg:
         Z.erinnerungen.append((a, False))
+        if KALENDER.aktiv:
+            KALENDER.aufgabe_anlegen(a)
 
     Z.notizen.append(Notiz(
         nr=NUMMER, wann=jetzt, dauer_s=dauer, roh=roh, rein=rein,
@@ -163,6 +191,8 @@ def _blatt(ansicht: str | None):
     if ansicht and ansicht in ANSICHTEN:
         Z.ansicht = ansicht
     _morgenseite_aktualisieren()
+    if Z.ansicht in ("heute", "kalender"):
+        _kalender_aktualisieren()
     eintraege, aufgaben = _detail_daten()
     return seiten.seite(Z, VAULT.listen, eintraege=eintraege, aufgaben=aufgaben,
                         sd_belegt_mb=SD_BELEGT_MB, offline_seit="")
